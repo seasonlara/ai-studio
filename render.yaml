@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: taiwan-shopee-ai-studio
+    env: node
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: ARK_API_KEY
+        sync: false
+      - key: ARK_IMAGE_MODEL
+        value: doubao-seedream-5-0-260128
+      - key: ARK_BASE_URL
+        value: https://ark.cn-beijing.volces.com/api/v3
+

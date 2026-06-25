@@ -1,0 +1,13 @@
+{
+  "name": "taiwan-shopee-ai-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI image generation web app for Taiwan Shopee product main/detail images.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check app.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
