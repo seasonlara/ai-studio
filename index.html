@@ -191,6 +191,24 @@
         </section>
       </main>
     </div>
+    <div id="imageModal" class="image-modal" hidden>
+      <div class="image-modal-backdrop" data-close-modal></div>
+      <div class="image-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="image-modal-head">
+          <div>
+            <span>图片预览</span>
+            <strong id="modalTitle">生成结果</strong>
+          </div>
+          <button id="modalClose" type="button" aria-label="关闭预览">关闭</button>
+        </div>
+        <div class="image-modal-stage">
+          <img id="modalImage" alt="生成结果大图" />
+        </div>
+        <div class="image-modal-actions">
+          <a id="modalDownload" href="#" download>下载图片</a>
+        </div>
+      </div>
+    </div>
     <script src="./app.js"></script>
   </body>
 </html>

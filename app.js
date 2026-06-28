@@ -215,6 +215,23 @@ function renderError(message) {
   $("taskStatus").textContent = "失败";
 }
 
+function openImageModal(item) {
+  if (!item.url || item.error) return;
+  $("modalImage").src = item.url;
+  $("modalImage").alt = item.title;
+  $("modalTitle").textContent = `${item.type} ${String(item.index).padStart(2, "0")}｜${item.title}`;
+  $("modalDownload").href = item.url;
+  $("modalDownload").download = `${item.kind}-${String(item.index).padStart(2, "0")}.png`;
+  $("imageModal").hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeImageModal() {
+  $("imageModal").hidden = true;
+  $("modalImage").removeAttribute("src");
+  document.body.classList.remove("modal-open");
+}
+
 function createImageCard(item, status) {
   const card = document.createElement("article");
   card.className = "image-card";
@@ -235,7 +252,13 @@ function createImageCard(item, status) {
     const img = document.createElement("img");
     img.src = item.url;
     img.alt = item.title;
-    image.appendChild(img);
+    const zoomButton = document.createElement("button");
+    zoomButton.type = "button";
+    zoomButton.className = "image-zoom-button";
+    zoomButton.setAttribute("aria-label", `查看大图：${item.title}`);
+    zoomButton.addEventListener("click", () => openImageModal(item));
+    zoomButton.appendChild(img);
+    image.appendChild(zoomButton);
   } else if (uploadedImages[0]) {
     const img = document.createElement("img");
     img.src = uploadedImages[item.index % uploadedImages.length]?.objectUrl || uploadedImages[0].objectUrl;
@@ -330,6 +353,13 @@ function setup() {
   $("limit").addEventListener("change", updateSummary);
   $("modelProvider").addEventListener("change", updateSummary);
   $("stylePreset").addEventListener("change", updateSummary);
+  $("modalClose").addEventListener("click", closeImageModal);
+  $("imageModal").addEventListener("click", (event) => {
+    if (event.target.dataset.closeModal !== undefined) closeImageModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !$("imageModal").hidden) closeImageModal();
+  });
   $("generateBtn").addEventListener("click", generateImages);
   $("clearBtn").addEventListener("click", () => clearResults(true));
   setupDragUpload();
