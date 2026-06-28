@@ -11,7 +11,7 @@ const modes = {
     includeMain: true,
     includeDetail: false,
     subtext: "一次生成即得专业主图",
-    limitOptions: [["5", "标准生成 5 张主图"]],
+    limitOptions: [["9", "标准生成 9 张主图"]],
   },
   detail: {
     nav: "详情页",
@@ -27,7 +27,7 @@ const modes = {
 };
 
 const outputs = {
-  main: ["爆款首圖", "情境使用圖", "痛點解決圖", "賣點標籤圖", "質感細節圖"],
+  main: ["全方位主視覺", "防護支撐圖", "折疊多角度圖", "升級比較圖", "商品規格表", "細節特寫圖", "包裝內容圖", "使用情境圖", "內部結構圖"],
   detail: ["核心卖点总览", "安装/使用流程", "升级比较图", "多角度展示", "材质结构图", "细节特写图", "使用情境图", "包装内容图", "规格参数表"],
 };
 
@@ -61,9 +61,9 @@ function syncLimitOptions() {
   const previous = select.value;
   let options = modes[currentMode].limitOptions;
   if (currentMode === "main") {
-    options = currentQuality === "pro" ? [["1", "PRO 生成 1 张主图"]] : [["5", "标准生成 5 张主图"]];
+    options = currentQuality === "pro" ? [["1", "PRO 生成 1 张主图"]] : [["9", "标准生成 9 张主图"]];
     if (dealEnabled()) {
-      options = currentQuality === "pro" ? [["7", "1 张主图 + 前六屏详情"]] : [["11", "5 张主图 + 前六屏详情"]];
+      options = currentQuality === "pro" ? [["7", "1 张主图 + 前六屏详情"]] : [["15", "9 张主图 + 前六屏详情"]];
     }
   }
 
