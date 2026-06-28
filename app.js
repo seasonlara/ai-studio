@@ -34,6 +34,7 @@ const outputs = {
 let uploadedImages = [];
 let currentMode = "main";
 let currentQuality = "standard";
+const maxUploadImages = 8;
 const $ = (id) => document.getElementById(id);
 
 function dealEnabled() {
@@ -122,26 +123,57 @@ function readFileAsDataUrl(file) {
 }
 
 async function previewFiles(files) {
-  uploadedImages.forEach((item) => item.objectUrl && URL.revokeObjectURL(item.objectUrl));
-  uploadedImages = await Promise.all(
-    [...files].slice(0, 8).map(async (file) => ({
+  const availableSlots = Math.max(maxUploadImages - uploadedImages.length, 0);
+  const nextImages = await Promise.all(
+    [...files].slice(0, availableSlots).map(async (file) => ({
+      id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`,
       file,
       objectUrl: URL.createObjectURL(file),
       ...(await readFileAsDataUrl(file)),
     })),
   );
 
+  uploadedImages = [...uploadedImages, ...nextImages];
+  renderUploadList();
+}
+
+function removeUploadedImage(id) {
+  const target = uploadedImages.find((item) => item.id === id);
+  if (target?.objectUrl) URL.revokeObjectURL(target.objectUrl);
+  uploadedImages = uploadedImages.filter((item) => item.id !== id);
+  renderUploadList();
+}
+
+function renderUploadList() {
   const grid = $("previewGrid");
   grid.innerHTML = "";
-  uploadedImages.forEach((item) => {
+
+  uploadedImages.forEach((item, index) => {
+    const tile = document.createElement("div");
+    tile.className = "upload-preview-tile";
+
     const img = document.createElement("img");
     img.src = item.objectUrl;
     img.alt = item.name;
-    grid.appendChild(img);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "upload-remove-button";
+    remove.setAttribute("aria-label", `移除第 ${index + 1} 张图片`);
+    remove.textContent = "×";
+    remove.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      removeUploadedImage(item.id);
+    });
+
+    tile.appendChild(img);
+    tile.appendChild(remove);
+    grid.appendChild(tile);
   });
 
-  $("uploadEmpty").hidden = uploadedImages.length > 0;
-  grid.hidden = uploadedImages.length === 0;
+  $("uploadAddTile").hidden = uploadedImages.length >= maxUploadImages;
+  $("uploadCount").textContent = `已选择 ${uploadedImages.length} / ${maxUploadImages} 张图片`;
   $("taskStatus").textContent = uploadedImages.length ? "图片已就绪" : "等待上传";
   updateSummary();
 }
@@ -342,7 +374,10 @@ function setup() {
       clearResults(false);
     });
   });
-  $("imageInput").addEventListener("change", (event) => previewFiles(event.target.files));
+  $("imageInput").addEventListener("change", (event) => {
+    previewFiles(event.target.files);
+    event.target.value = "";
+  });
   $("limit").addEventListener("change", updateSummary);
   $("modelProvider").addEventListener("change", (event) => selectProvider(event.target.value));
   $("stylePreset").addEventListener("change", updateSummary);

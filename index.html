@@ -210,15 +210,15 @@
                 <label class="section-label">上传商品图片</label>
                 <span>图片越清晰、角度越完整，生成结果越贴近实物</span>
               </div>
-              <label id="dropZone" class="drop-zone">
-                <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" multiple />
-                <div id="uploadEmpty" class="upload-empty">
-                  <div class="upload-icon">⇧</div>
-                  <strong>拖拽图片到此处或点击上传</strong>
-                  <span>支持 JPG、PNG、WebP，最多 8 张</span>
-                </div>
-                <div id="previewGrid" class="preview-grid" hidden></div>
-              </label>
+              <div id="dropZone" class="upload-list-shell">
+                <div id="previewGrid" class="preview-grid" aria-live="polite"></div>
+                <label id="uploadAddTile" class="upload-add-tile">
+                  <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+                  <span>＋</span>
+                  <strong>添加</strong>
+                </label>
+              </div>
+              <p id="uploadCount" class="upload-count">已选择 0 / 8 张图片</p>
             </div>
 
             <details class="optional-info">
