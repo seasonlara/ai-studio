@@ -10,123 +10,214 @@
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <div class="brand-mark">A</div>
-          <div>
-            <strong>AI Studio</strong>
-            <span>电商图片工作台</span>
-          </div>
+          <div class="brand-mark">✦</div>
+          <strong>AI Studio</strong>
         </div>
 
-        <nav class="nav" aria-label="创作类型">
-          <button class="nav-item active" type="button" data-mode="suite">
-            <span>套</span>
-            <strong>一键式生图</strong>
-            <small>主图 + 详情页</small>
-          </button>
-          <button class="nav-item" type="button" data-mode="main">
-            <span>主</span>
-            <strong>主图生成</strong>
-            <small>点击率素材</small>
-          </button>
-          <button class="nav-item" type="button" data-mode="detail">
-            <span>详</span>
-            <strong>详情页生成</strong>
-            <small>转化说明图</small>
-          </button>
+        <nav class="side-nav" aria-label="功能菜单">
+          <div class="nav-group">
+            <span class="nav-title">AI 创作</span>
+            <button class="menu-item active" type="button">
+              <span class="menu-icon">✦</span>
+              <strong>AI 生图</strong>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">▣</span>
+              <strong>一键式出图</strong>
+              <em>NEW</em>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">⧉</span>
+              <strong>AI 克隆图片</strong>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">◐</span>
+              <strong>DIY 自由生图</strong>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">▶</span>
+              <strong>AI 视频</strong>
+              <em>NEW</em>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">☰</span>
+              <strong>智能商品描述</strong>
+            </button>
+          </div>
+
+          <div class="nav-divider"></div>
+
+          <div class="nav-group">
+            <span class="nav-title">图片工具</span>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">◌</span>
+              <strong>水印模板</strong>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">⌫</span>
+              <strong>智能去水印</strong>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">文</span>
+              <strong>图片翻译</strong>
+              <em>NEW</em>
+            </button>
+          </div>
+
+          <div class="nav-divider"></div>
+
+          <div class="nav-group">
+            <span class="nav-title">我的</span>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">▧</span>
+              <strong>我的作品</strong>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">☷</span>
+              <strong>任务队列</strong>
+            </button>
+          </div>
+
+          <div class="nav-divider"></div>
+
+          <div class="nav-group">
+            <span class="nav-title">账户</span>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">¥</span>
+              <strong>积分流水</strong>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">票</span>
+              <strong>充值记录</strong>
+            </button>
+            <button class="menu-item disabled" type="button" disabled>
+              <span class="menu-icon">盾</span>
+              <strong>售后记录</strong>
+            </button>
+          </div>
         </nav>
 
-        <div class="balance-card">
-          <span>可用积分</span>
-          <strong id="creditBalance">1,280</strong>
-          <button type="button">充值</button>
+        <div class="sidebar-bottom">
+          <button class="guide-link" type="button">
+            <span>📘</span>
+            <strong>使用教程</strong>
+          </button>
+          <div class="account-card">
+            <div class="avatar"></div>
+            <div>
+              <strong>游客用户</strong>
+              <span>剩余 1,280 积分</span>
+            </div>
+          </div>
         </div>
       </aside>
 
-      <main class="workspace">
-        <header class="page-head">
-          <div>
-            <span id="pageKicker" class="kicker">套图工作流</span>
-            <h1 id="pageTitle">一键生成虾皮商品套图</h1>
-            <p id="pageDescription">适合从一张商品图开始，快速产出上架需要的主图和详情页。</p>
-          </div>
-          <div class="run-summary">
-            <span id="summaryScope">本次 1 张</span>
-            <strong><b id="buttonCost">15</b> 积分</strong>
-          </div>
+      <div class="main-shell">
+        <header class="top-actions">
+          <button type="button" class="promo-button">邀友返利活动</button>
+          <button type="button" class="tutorial-button">使用教程</button>
+          <button type="button" class="notice-button">公告</button>
+          <button type="button" class="login-button">登录</button>
         </header>
 
-        <section class="studio-grid">
-          <section class="panel upload-panel">
-            <div class="panel-head">
-              <span>01</span>
-              <div>
-                <h2>商品图片</h2>
-                <p>最多 8 张，建议使用清晰实拍图。</p>
-              </div>
-            </div>
-            <label id="dropZone" class="drop-zone">
-              <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" multiple />
-              <div id="uploadEmpty" class="upload-empty">
-                <strong>上传商品图</strong>
-                <span>JPG / PNG / WebP</span>
-              </div>
-              <div id="previewGrid" class="preview-grid" hidden></div>
-            </label>
+        <main class="workspace">
+          <section class="hero">
+            <h1>AI Studio</h1>
+            <p>台湾虾皮电商图片生成平台</p>
           </section>
 
-          <section class="panel control-panel">
-            <div class="panel-head">
-              <span>02</span>
+          <section class="creator-panel">
+            <button class="floating-guide" type="button">使用教程</button>
+
+            <div class="panel-title">
               <div>
-                <h2>生成任务</h2>
-                <p id="modeHint">自动组合主图与详情页。</p>
+                <h2>创建您的作品</h2>
+                <p>上传商品图片并选择任务，让 AI 生成适合上架的主图或详情页。</p>
+              </div>
+              <div class="credit-pill">
+                <span id="summaryScope">剩余积分</span>
+                <strong><b id="creditBalance">472</b> 积分</strong>
               </div>
             </div>
 
-            <div class="task-strip" id="taskStrip"></div>
-
-            <div class="form-grid">
-              <label class="field wide">
-                <span>生成模型</span>
+            <div class="step-block">
+              <div class="step-label">① 选择生成模式</div>
+              <div class="mode-grid" role="group" aria-label="生成模式">
+                <button class="mode-card active" type="button" data-quality="standard">
+                  <span>⚡</span>
+                  <strong>标准极速</strong>
+                  <small>快速出图，适合批量操作</small>
+                  <b>199 积分起</b>
+                </button>
+                <button class="mode-card" type="button" data-quality="pro">
+                  <span>♛</span>
+                  <strong>PRO 增强</strong>
+                  <small>高画质精品，按张计费</small>
+                  <b>100 积分 / 张</b>
+                </button>
+              </div>
+              <div class="model-select-line">
+                <span>⚙</span>
+                <label for="modelProvider">模型</label>
                 <select id="modelProvider">
+                  <option value="banana-pro">Banana Pro</option>
+                  <option value="gpt-image-2">GPT Image 2</option>
                   <option value="ark">标准稳定</option>
-                  <option value="gpt-image-2">文字排版增强</option>
-                  <option value="banana-pro">创意质感增强</option>
                 </select>
-              </label>
-              <label class="field">
-                <span>生成张数</span>
-                <select id="limit">
-                  <option value="1">先生成 1 张</option>
-                  <option value="4">生成 4 张</option>
-                  <option value="16">生成全部</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>版面风格</span>
+                <small>默认模型，看着 pro 🐝</small>
+              </div>
+            </div>
+
+            <div class="step-block compact-step">
+              <div class="step-label">② 生成内容</div>
+              <div class="content-tabs" role="group" aria-label="生成内容">
+                <button class="content-option active" type="button" data-mode="main">主图生成</button>
+                <button class="content-option" type="button" data-mode="detail">详情页</button>
+              </div>
+            </div>
+
+            <div class="form-grid species-form">
+              <label class="field field-wide">
+                <span>平台 / 风格</span>
                 <select id="stylePreset">
-                  <option value="orange">橙色爆款</option>
-                  <option value="clean">清爽白底</option>
-                  <option value="dark">黑橙质感</option>
+                  <option value="orange">SHOPEE / 台湾橙色爆款</option>
+                  <option value="clean">SHOPEE / 清爽白底</option>
+                  <option value="dark">SHOPEE / 黑橙质感</option>
                 </select>
               </label>
+
               <label class="field">
-                <span>商品类目</span>
-                <select id="category">
-                  <option value="auto">自动判断</option>
-                  <option value="storage">车用 / 收纳</option>
-                  <option value="child">母婴 / 儿童</option>
-                  <option value="home">居家用品</option>
-                  <option value="general">通用商品</option>
+                <span>产品标题</span>
+                <input id="productName" placeholder="例如：车用座椅收纳袋 多格分类 后座置物" />
+              </label>
+
+              <label class="field field-wide">
+                <span>输出文字语言</span>
+                <select id="outputLanguage">
+                  <option value="zh-TW">繁体中文（台湾）</option>
+                  <option value="zh-CN">简体中文</option>
                 </select>
               </label>
-              <label class="field">
-                <span>出图目标</span>
-                <select id="goal">
-                  <option value="balanced">均衡出图</option>
-                  <option value="click">提升点击</option>
-                  <option value="conversion">强化转化</option>
-                </select>
+            </div>
+            <select id="limit" hidden>
+              <option value="7" selected>生成全部</option>
+            </select>
+            <input id="category" type="hidden" value="auto" />
+            <input id="goal" type="hidden" value="balanced" />
+
+            <div class="upload-row">
+              <div>
+                <label class="section-label">上传商品图片</label>
+                <span>图片越清晰、角度越完整，生成结果越贴近实物</span>
+              </div>
+              <label id="dropZone" class="drop-zone">
+                <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+                <div id="uploadEmpty" class="upload-empty">
+                  <div class="upload-icon">⇧</div>
+                  <strong>拖拽图片到此处或点击上传</strong>
+                  <span>支持 JPG、PNG、WebP，最多 8 张</span>
+                </div>
+                <div id="previewGrid" class="preview-grid" hidden></div>
               </label>
             </div>
 
@@ -134,63 +225,62 @@
               <summary>补充商品信息</summary>
               <div class="form-grid">
                 <label class="field">
-                  <span>商品名称</span>
-                  <input id="productName" placeholder="例如：车用座椅收纳袋" />
+                  <span>核心卖点</span>
+                  <input id="coreBenefit" placeholder="例如：大容量、稳固不晃、随手收纳" />
                 </label>
                 <label class="field">
-                  <span>核心卖点</span>
-                  <input id="coreBenefit" placeholder="例如：多格分类、随手拿取" />
-                </label>
-                <label class="field wide">
                   <span>材质 / 尺寸 / 包装</span>
-                  <textarea id="extraInfo" placeholder="例如：牛津布，适用于多数汽车座椅，1 入装"></textarea>
+                  <textarea id="extraInfo" placeholder="例如：TPR 材质，适用于 Tesla Model Y，1 入装"></textarea>
                 </label>
-                <label class="field wide">
+                <label class="field field-wide">
                   <span>必须保留或避免</span>
                   <textarea id="constraints" placeholder="例如：不要添加品牌 Logo；不要写未经确认的防水等级"></textarea>
                 </label>
               </div>
             </details>
 
-            <button id="generateBtn" class="generate-button" type="button">
-              <span id="generateLabel">开始生成套图</span>
-              <small id="generateSubtext">上传图片后可生成</small>
-            </button>
+            <div class="deal-strip">
+              <div class="deal-badge">限时特惠</div>
+              <label>
+                <input id="includeDetailDeal" type="checkbox" />
+                <span>同时生成详情页（默认前六屏）</span>
+              </label>
+              <small>赠送水印解锁</small>
+              <strong><span>249</span> +199</strong>
+            </div>
+
+            <div class="generate-wrap">
+              <div class="sale-tag">2.5 折特惠 <span>原价 800</span></div>
+              <button id="generateBtn" class="generate-button" type="button">
+                <span id="generateLabel">生成图像</span>
+                <small id="generateSubtext">上传图片后可生成</small>
+              </button>
+              <p id="taskCount">一次生成即得 1 张精选图</p>
+            </div>
           </section>
-        </section>
 
-        <section class="status-row">
-          <article>
-            <span>任务状态</span>
-            <strong id="taskStatus">等待上传</strong>
-          </article>
-          <article>
-            <span>生成内容</span>
-            <strong id="taskCount">未创建</strong>
-          </article>
-          <article>
-            <span>当前页面</span>
-            <strong id="currentModeLabel">一键式生图</strong>
-          </article>
-        </section>
-
-        <section class="panel results-panel">
-          <div class="results-head">
-            <div>
-              <h2>生成结果</h2>
-              <p id="resultHint">结果会保留在当前页面，可直接下载。</p>
+          <section class="results-panel">
+            <div class="results-head">
+              <div>
+                <h2>生成结果</h2>
+                <p id="resultHint">结果会保留在当前页面，可点击图片放大查看。</p>
+              </div>
+              <div class="result-actions">
+                <span id="taskStatus">等待上传</span>
+                <button id="clearBtn" type="button">清空</button>
+              </div>
             </div>
-            <button id="clearBtn" type="button">清空</button>
-          </div>
-          <div id="resultGrid" class="result-grid empty-state">
-            <div>
-              <strong>等待生成</strong>
-              <span>完成后会在这里显示图片。</span>
+            <div id="resultGrid" class="result-grid empty-state">
+              <div>
+                <strong>等待生成</strong>
+                <span>完成后会在这里显示图片。</span>
+              </div>
             </div>
-          </div>
-        </section>
-      </main>
+          </section>
+        </main>
+      </div>
     </div>
+
     <div id="imageModal" class="image-modal" hidden>
       <div class="image-modal-backdrop" data-close-modal></div>
       <div class="image-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">

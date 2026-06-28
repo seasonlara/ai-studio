@@ -1,57 +1,31 @@
 const model = "doubao-seedream-5-0-260128";
 const providerLabels = {
   ark: "标准稳定",
-  "gpt-image-2": "文字排版增强",
-  "banana-pro": "创意质感增强",
+  "gpt-image-2": "GPT Image 2",
+  "banana-pro": "Banana Pro",
 };
 
 const modes = {
-  suite: {
-    nav: "一键式生图",
-    kicker: "套图工作流",
-    title: "一键生成虾皮商品套图",
-    description: "适合从一张商品图开始，快速产出上架需要的主图和详情页。",
-    hint: "自动组合主图与详情页。",
-    action: "开始生成套图",
-    subtext: "先测 1 张，满意后再生成全套",
-    includeMain: true,
-    includeDetail: true,
-    limitOptions: [
-      ["1", "先生成 1 张"],
-      ["4", "生成 4 张"],
-      ["16", "生成全部 16 张"],
-    ],
-  },
   main: {
     nav: "主图生成",
-    kicker: "点击率素材",
-    title: "生成商品主图",
-    description: "围绕首图吸引力、卖点表达和场景感，生成适合列表曝光的图片。",
-    hint: "聚焦封面、卖点、场景和对比。",
-    action: "开始生成主图",
-    subtext: "适合先优化商品曝光",
     includeMain: true,
     includeDetail: false,
+    subtext: "一次生成即得 9 张精选图",
     limitOptions: [
       ["1", "先生成 1 张"],
       ["4", "生成 4 张"],
-      ["7", "生成全部 7 张"],
+      ["7", "生成全部"],
     ],
   },
   detail: {
-    nav: "详情页生成",
-    kicker: "转化说明图",
-    title: "生成商品详情页",
-    description: "围绕结构说明、材质细节、使用情境和参数信息，补齐商品页内容。",
-    hint: "聚焦说明、细节、场景和规格。",
-    action: "开始生成详情页",
-    subtext: "适合补齐商品页说服力",
+    nav: "详情页",
     includeMain: false,
     includeDetail: true,
+    subtext: "生成商品详情页说明图",
     limitOptions: [
       ["1", "先生成 1 张"],
       ["4", "生成 4 张"],
-      ["9", "生成全部 9 张"],
+      ["9", "生成全部"],
     ],
   },
 };
@@ -62,14 +36,22 @@ const outputs = {
 };
 
 let uploadedImages = [];
-let currentMode = "suite";
+let currentMode = "main";
 const $ = (id) => document.getElementById(id);
 
-function selectedOutputs(mode = currentMode) {
-  const config = modes[mode];
+function dealEnabled() {
+  return Boolean($("includeDetailDeal")?.checked && currentMode === "main");
+}
+
+function selectedOutputs() {
   const selected = [];
-  if (config.includeMain) selected.push(...outputs.main.map((title, index) => ({ type: "主图", kind: "main", title, index: index + 1 })));
-  if (config.includeDetail) selected.push(...outputs.detail.map((title, index) => ({ type: "详情页", kind: "detail", title, index: index + 1 })));
+  if (modes[currentMode].includeMain) {
+    selected.push(...outputs.main.map((title, index) => ({ type: "主图", kind: "main", title, index: index + 1 })));
+  }
+  if (modes[currentMode].includeDetail || dealEnabled()) {
+    const detailList = dealEnabled() ? outputs.detail.slice(0, 6) : outputs.detail;
+    selected.push(...detailList.map((title, index) => ({ type: "详情页", kind: "detail", title, index: index + 1 })));
+  }
   return selected;
 }
 
@@ -80,57 +62,55 @@ function visibleOutputs() {
 function syncLimitOptions() {
   const select = $("limit");
   const previous = select.value;
+  const options = dealEnabled()
+    ? [
+        ["1", "先生成 1 张"],
+        ["4", "生成 4 张"],
+        ["13", "主图 + 前六屏详情"],
+      ]
+    : modes[currentMode].limitOptions;
+
   select.innerHTML = "";
-  modes[currentMode].limitOptions.forEach(([value, label]) => {
+  options.forEach(([value, label]) => {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = label;
     select.appendChild(option);
   });
-  if ([...select.options].some((option) => option.value === previous)) select.value = previous;
+  if ([...select.options].some((option) => option.value === previous)) {
+    select.value = previous;
+  } else {
+    select.value = options[options.length - 1][0];
+  }
 }
 
-function renderTaskStrip() {
-  const list = selectedOutputs();
-  const strip = $("taskStrip");
-  strip.innerHTML = "";
-  list.slice(0, 6).forEach((item) => {
-    const chip = document.createElement("span");
-    chip.textContent = item.title;
-    strip.appendChild(chip);
-  });
-  if (list.length > 6) {
-    const chip = document.createElement("span");
-    chip.textContent = `+${list.length - 6}`;
-    strip.appendChild(chip);
-  }
+function taskCost(count) {
+  if (dealEnabled()) return count >= 13 ? 199 : 99;
+  if ($("modelProvider").value !== "ark") return count * 100;
+  return count * 15;
 }
 
 function updateSummary() {
   const count = visibleOutputs().length;
-  const cost = count === 16 ? 199 : count * 15;
+  const cost = taskCost(count);
   const provider = $("modelProvider").value;
-  $("buttonCost").textContent = cost;
-  $("summaryScope").textContent = `本次 ${count} 张`;
-  $("taskCount").textContent = uploadedImages.length ? `${count} 张图片` : "未创建";
-  $("generateSubtext").textContent = provider === "ark" ? modes[currentMode].subtext : `${providerLabels[provider]}，适合先生成 1 张确认效果`;
+  $("summaryScope").textContent = `剩余积分`;
+  $("taskCount").textContent = `一次生成即得 ${count} 张精选图`;
+  $("generateSubtext").textContent = uploadedImages.length ? `消耗 ${cost} 积分` : `${providerLabels[provider]} · 上传图片后可生成`;
 }
 
 function setMode(mode) {
   currentMode = mode;
-  const config = modes[mode];
-  document.querySelectorAll(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
-  $("pageKicker").textContent = config.kicker;
-  $("pageTitle").textContent = config.title;
-  $("pageDescription").textContent = config.description;
-  $("modeHint").textContent = config.hint;
-  $("generateLabel").textContent = config.action;
-  $("generateSubtext").textContent = config.subtext;
-  $("currentModeLabel").textContent = config.nav;
+  document.querySelectorAll(".content-option").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+  if (mode === "detail") $("includeDetailDeal").checked = false;
   syncLimitOptions();
-  renderTaskStrip();
   updateSummary();
   clearResults(false);
+}
+
+function selectProvider(provider) {
+  $("modelProvider").value = provider;
+  updateSummary();
 }
 
 function readFileAsDataUrl(file) {
@@ -168,6 +148,7 @@ async function previewFiles(files) {
 }
 
 function payload() {
+  const effectiveIncludeDetail = modes[currentMode].includeDetail || dealEnabled();
   return {
     images: uploadedImages.map(({ name, type, dataUrl }) => ({ name, type, dataUrl })),
     settings: {
@@ -178,7 +159,8 @@ function payload() {
       limit: Number($("limit").value || 1),
       stylePreset: $("stylePreset").value,
       includeMain: modes[currentMode].includeMain,
-      includeDetail: modes[currentMode].includeDetail,
+      includeDetail: effectiveIncludeDetail,
+      outputLanguage: $("outputLanguage").value,
       productName: $("productName").value.trim(),
       coreBenefit: $("coreBenefit").value.trim(),
       extraInfo: $("extraInfo").value.trim(),
@@ -193,8 +175,8 @@ function renderPendingCards(items) {
   grid.innerHTML = "";
   items.forEach((item) => grid.appendChild(createImageCard(item, "生成中")));
   $("taskStatus").textContent = "生成中";
-  $("taskCount").textContent = `${items.length} 张图片`;
-  $("resultHint").textContent = `正在使用${providerLabels[$("modelProvider").value]}生成，请保持当前页面打开。`;
+  $("taskCount").textContent = `正在生成 ${items.length} 张图片`;
+  $("resultHint").textContent = `正在使用 ${providerLabels[$("modelProvider").value]} 生成，请保持当前页面打开。`;
 }
 
 function renderFinishedCards(items) {
@@ -204,8 +186,8 @@ function renderFinishedCards(items) {
   items.forEach((item) => grid.appendChild(createImageCard(item, item.error ? "失败" : "已完成")));
   const failed = items.filter((item) => item.error).length;
   $("taskStatus").textContent = failed ? "部分失败" : "已完成";
-  $("taskCount").textContent = `${items.length} 张图片`;
-  $("resultHint").textContent = failed ? `${failed} 张生成失败，可调整图片或补充信息后重试。` : "图片已生成，可下载使用。";
+  $("taskCount").textContent = `一次生成即得 ${items.length} 张精选图`;
+  $("resultHint").textContent = failed ? `${failed} 张生成失败，可调整图片或补充信息后重试。` : "图片已生成，可点击图片放大查看。";
 }
 
 function renderError(message) {
@@ -329,7 +311,7 @@ function clearResults(resetStatus = true) {
   const grid = $("resultGrid");
   grid.className = "result-grid empty-state";
   grid.innerHTML = `<div><strong>等待生成</strong><span>完成后会在这里显示图片。</span></div>`;
-  $("resultHint").textContent = "结果会保留在当前页面，可直接下载。";
+  $("resultHint").textContent = "结果会保留在当前页面，可点击图片放大查看。";
   if (resetStatus) $("taskStatus").textContent = uploadedImages.length ? "图片已就绪" : "等待上传";
 }
 
@@ -348,11 +330,21 @@ function setupDragUpload() {
 }
 
 function setup() {
-  document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
+  document.querySelectorAll(".content-option").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
+  document.querySelectorAll(".mode-card").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".mode-card").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+    });
+  });
   $("imageInput").addEventListener("change", (event) => previewFiles(event.target.files));
   $("limit").addEventListener("change", updateSummary);
-  $("modelProvider").addEventListener("change", updateSummary);
+  $("modelProvider").addEventListener("change", (event) => selectProvider(event.target.value));
   $("stylePreset").addEventListener("change", updateSummary);
+  $("includeDetailDeal").addEventListener("change", () => {
+    syncLimitOptions();
+    updateSummary();
+  });
   $("modalClose").addEventListener("click", closeImageModal);
   $("imageModal").addEventListener("click", (event) => {
     if (event.target.dataset.closeModal !== undefined) closeImageModal();
@@ -363,7 +355,8 @@ function setup() {
   $("generateBtn").addEventListener("click", generateImages);
   $("clearBtn").addEventListener("click", () => clearResults(true));
   setupDragUpload();
-  setMode("suite");
+  syncLimitOptions();
+  updateSummary();
 }
 
 setup();
