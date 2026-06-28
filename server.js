@@ -62,6 +62,7 @@ function promptFor(item, settings) {
   const constraints = settings.constraints || "不要添加未提供的品牌、认证、尺寸、材质或夸张功效。";
   const role = item.kind === "main" ? "台湾虾皮商品主图" : "台湾虾皮商品详情页";
   const style = settings.stylePreset === "clean" ? "干净白底、橙色点缀、移动端可读" : settings.stylePreset === "dark" ? "黑橙科技质感、强对比、适合车用品" : "橙色爆款电商风、粗体繁体中文、白描边、圆角信息块";
+  const goal = settings.goal === "click" ? "优先提升列表点击率，强化第一眼吸引力和核心卖点识别。" : settings.goal === "conversion" ? "优先提升详情页转化，强化可信说明、使用场景和购买理由。" : "兼顾点击率与转化率，画面清楚、卖点明确、信息不过载。";
 
   return [
     `你是专业台湾虾皮电商设计师。请基于用户上传的产品图，直接生成一张 1:1 ${role}。`,
@@ -69,6 +70,7 @@ function promptFor(item, settings) {
     `商品名称：${name}。核心卖点：${benefit}。`,
     `可选补充信息：${extra}。`,
     `用户约束：${constraints}。`,
+    `出图目标：${goal}`,
     `整体风格：${style}。`,
     "必须保留产品真实外观、颜色、材质纹理、结构比例、可见 Logo/标签和口袋/扣具/边线等关键细节。",
     "画面文字使用台湾繁体中文，不要使用简体字。文案短、粗、大，适合手机端浏览。",
