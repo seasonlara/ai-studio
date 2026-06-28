@@ -1,6 +1,6 @@
 const model = "doubao-seedream-5-0-260128";
 const providerLabels = {
-  ark: "标准稳定",
+  ark: "seedream5.0",
   "gpt-image-2": "GPT Image 2",
   "banana-pro": "Banana Pro",
 };
@@ -10,12 +10,8 @@ const modes = {
     nav: "主图生成",
     includeMain: true,
     includeDetail: false,
-    subtext: "一次生成即得 9 张精选图",
-    limitOptions: [
-      ["1", "先生成 1 张"],
-      ["4", "生成 4 张"],
-      ["7", "生成全部"],
-    ],
+    subtext: "一次生成即得专业主图",
+    limitOptions: [["5", "标准生成 5 张主图"]],
   },
   detail: {
     nav: "详情页",
@@ -31,12 +27,13 @@ const modes = {
 };
 
 const outputs = {
-  main: ["爆款主视觉", "场景使用图", "痛点解决图", "卖点标签图", "材质细节图", "升级对比图", "安心出货图"],
+  main: ["爆款首圖", "情境使用圖", "痛點解決圖", "賣點標籤圖", "質感細節圖"],
   detail: ["核心卖点总览", "安装/使用流程", "升级比较图", "多角度展示", "材质结构图", "细节特写图", "使用情境图", "包装内容图", "规格参数表"],
 };
 
 let uploadedImages = [];
 let currentMode = "main";
+let currentQuality = "standard";
 const $ = (id) => document.getElementById(id);
 
 function dealEnabled() {
@@ -62,13 +59,13 @@ function visibleOutputs() {
 function syncLimitOptions() {
   const select = $("limit");
   const previous = select.value;
-  const options = dealEnabled()
-    ? [
-        ["1", "先生成 1 张"],
-        ["4", "生成 4 张"],
-        ["13", "主图 + 前六屏详情"],
-      ]
-    : modes[currentMode].limitOptions;
+  let options = modes[currentMode].limitOptions;
+  if (currentMode === "main") {
+    options = currentQuality === "pro" ? [["1", "PRO 生成 1 张主图"]] : [["5", "标准生成 5 张主图"]];
+    if (dealEnabled()) {
+      options = currentQuality === "pro" ? [["7", "1 张主图 + 前六屏详情"]] : [["11", "5 张主图 + 前六屏详情"]];
+    }
+  }
 
   select.innerHTML = "";
   options.forEach(([value, label]) => {
@@ -85,7 +82,9 @@ function syncLimitOptions() {
 }
 
 function taskCost(count) {
-  if (dealEnabled()) return count >= 13 ? 199 : 99;
+  if (dealEnabled()) return currentQuality === "pro" ? 199 : 299;
+  if (currentQuality === "pro") return 100;
+  if (currentMode === "main") return 199;
   if ($("modelProvider").value !== "ark") return count * 100;
   return count * 15;
 }
@@ -95,7 +94,7 @@ function updateSummary() {
   const cost = taskCost(count);
   const provider = $("modelProvider").value;
   $("summaryScope").textContent = `剩余积分`;
-  $("taskCount").textContent = `一次生成即得 ${count} 张精选图`;
+  $("taskCount").textContent = `一次生成即得 ${count} 张${currentMode === "main" ? "专业主图" : "精选图"}`;
   $("generateSubtext").textContent = uploadedImages.length ? `消耗 ${cost} 积分` : `${providerLabels[provider]} · 上传图片后可生成`;
 }
 
@@ -158,6 +157,7 @@ function payload() {
       modelProvider: $("modelProvider").value,
       limit: Number($("limit").value || 1),
       stylePreset: $("stylePreset").value,
+      generationQuality: currentQuality,
       includeMain: modes[currentMode].includeMain,
       includeDetail: effectiveIncludeDetail,
       outputLanguage: $("outputLanguage").value,
@@ -335,6 +335,11 @@ function setup() {
     button.addEventListener("click", () => {
       document.querySelectorAll(".mode-card").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
+      currentQuality = button.dataset.quality === "pro" ? "pro" : "standard";
+      selectProvider(currentQuality === "pro" ? "banana-pro" : "ark");
+      syncLimitOptions();
+      updateSummary();
+      clearResults(false);
     });
   });
   $("imageInput").addEventListener("change", (event) => previewFiles(event.target.files));
