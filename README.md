@@ -27,6 +27,8 @@ http://127.0.0.1:8790
 ARK_API_KEY=你的火山方舟 API Key
 ARK_IMAGE_MODEL=doubao-seedream-5-0-260128
 ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+AIGC51_TOKEN=你的51AIGC或APIZ接口Token
+APIZ_API_BASE=https://api.apiz.ai
 ```
 
 5. 启动命令使用：
@@ -46,4 +48,3 @@ https://你的域名/api/health
 ## 注意
 
 不要把 `.env` 或 API Key 上传到 GitHub。
-

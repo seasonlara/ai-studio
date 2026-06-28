@@ -12,4 +12,7 @@ services:
         value: doubao-seedream-5-0-260128
       - key: ARK_BASE_URL
         value: https://ark.cn-beijing.volces.com/api/v3
-
+      - key: AIGC51_TOKEN
+        sync: false
+      - key: APIZ_API_BASE
+        value: https://api.apiz.ai

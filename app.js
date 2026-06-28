@@ -1,4 +1,9 @@
 const model = "doubao-seedream-5-0-260128";
+const providerLabels = {
+  ark: "标准稳定",
+  "gpt-image-2": "文字排版增强",
+  "banana-pro": "创意质感增强",
+};
 
 const modes = {
   suite: {
@@ -104,9 +109,11 @@ function renderTaskStrip() {
 function updateSummary() {
   const count = visibleOutputs().length;
   const cost = count === 16 ? 199 : count * 15;
+  const provider = $("modelProvider").value;
   $("buttonCost").textContent = cost;
   $("summaryScope").textContent = `本次 ${count} 张`;
   $("taskCount").textContent = uploadedImages.length ? `${count} 张图片` : "未创建";
+  $("generateSubtext").textContent = provider === "ark" ? modes[currentMode].subtext : `${providerLabels[provider]}，适合先生成 1 张确认效果`;
 }
 
 function setMode(mode) {
@@ -167,6 +174,7 @@ function payload() {
       category: $("category").value,
       goal: $("goal").value,
       model,
+      modelProvider: $("modelProvider").value,
       limit: Number($("limit").value || 1),
       stylePreset: $("stylePreset").value,
       includeMain: modes[currentMode].includeMain,
@@ -186,7 +194,7 @@ function renderPendingCards(items) {
   items.forEach((item) => grid.appendChild(createImageCard(item, "生成中")));
   $("taskStatus").textContent = "生成中";
   $("taskCount").textContent = `${items.length} 张图片`;
-  $("resultHint").textContent = "正在生成，请保持当前页面打开。";
+  $("resultHint").textContent = `正在使用${providerLabels[$("modelProvider").value]}生成，请保持当前页面打开。`;
 }
 
 function renderFinishedCards(items) {
@@ -320,6 +328,7 @@ function setup() {
   document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
   $("imageInput").addEventListener("change", (event) => previewFiles(event.target.files));
   $("limit").addEventListener("change", updateSummary);
+  $("modelProvider").addEventListener("change", updateSummary);
   $("stylePreset").addEventListener("change", updateSummary);
   $("generateBtn").addEventListener("click", generateImages);
   $("clearBtn").addEventListener("click", () => clearResults(true));

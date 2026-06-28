@@ -1,13 +1,17 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const PORT = Number(process.env.PORT || 8790);
 const ARK_BASE_URL = process.env.ARK_BASE_URL || "https://ark.cn-beijing.volces.com/api/v3";
 const ARK_MODEL = process.env.ARK_IMAGE_MODEL || "doubao-seedream-5-0-260128";
 const ARK_API_KEY = process.env.ARK_API_KEY || "";
+const APIZ_API_BASE = process.env.APIZ_API_BASE || "https://api.apiz.ai";
+const AIGC51_TOKEN = process.env.AIGC51_TOKEN || "";
 const DRY_RUN = process.env.ARK_DRY_RUN === "1" || !ARK_API_KEY;
 const root = __dirname;
+const uploadStore = new Map();
 const allowedModels = {
   "doubao-seedream-5-0-260128": "Doubao Seedream 5.0",
   "doubao-seedream-4-5-251128": "Doubao Seedream 4.5",
@@ -31,6 +35,29 @@ const detailTitles = ["核心卖点总览", "安装/使用流程", "升级比较
 function sendJson(res, status, data) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
+}
+
+function publicBaseUrl(req) {
+  if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  return `${proto}://${host}`;
+}
+
+function dataUrlToUpload(dataUrl) {
+  const match = String(dataUrl || "").match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/);
+  if (!match) throw new Error("图片格式无效，请上传 PNG、JPG 或 WebP。");
+  const mime = match[1] === "image/jpg" ? "image/jpeg" : match[1];
+  return { mime, buffer: Buffer.from(match[2], "base64") };
+}
+
+function createPublicImageUrls(req, images) {
+  return images.map((image) => {
+    const upload = dataUrlToUpload(image.dataUrl);
+    const id = crypto.randomUUID();
+    uploadStore.set(id, { ...upload, createdAt: Date.now() });
+    return `${publicBaseUrl(req)}/uploads/${id}`;
+  });
 }
 
 function readBody(req) {
@@ -109,6 +136,79 @@ async function callArkImage(prompt, images, model) {
   throw new Error("Ark API 未返回图片 URL 或 base64。");
 }
 
+async function apizRequest(pathname, body) {
+  if (!AIGC51_TOKEN) throw new Error("当前模型需要配置 AIGC51_TOKEN。");
+  const response = await fetch(`${APIZ_API_BASE}${pathname}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${AIGC51_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || data.message || `模型服务请求失败：${response.status}`);
+  if (data.code && data.code !== 200) throw new Error(data.message || `模型服务请求失败：${data.code}`);
+  return data;
+}
+
+function apizImageUrl(data) {
+  const task = data?.data || data || {};
+  const output = task.output || task.result || {};
+  const images = output.images || task.images || [];
+  const first = images[0];
+  return typeof first === "string" ? first : first?.url;
+}
+
+async function waitForApizTask(taskId) {
+  const deadline = Date.now() + 150000;
+  while (Date.now() < deadline) {
+    const data = await apizRequest("/api/v3/tasks/query", { task_id: taskId });
+    const task = data?.data || data || {};
+    if (task.status === "completed" || task.status === "succeeded" || task.status === "success") {
+      const url = apizImageUrl(data);
+      if (url) return url;
+      throw new Error("任务已完成，但没有返回图片地址。");
+    }
+    if (task.status === "failed" || task.status === "error") {
+      throw new Error(task.error || task.message || "图片生成失败。");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  throw new Error("图片生成超时，请稍后重试。");
+}
+
+async function callApizImage(prompt, imageUrls, provider) {
+  const isGptImage2 = provider === "gpt-image-2";
+  const model = isGptImage2 ? (imageUrls.length ? "openai/gpt-image-2/edit" : "openai/gpt-image-2") : "kapon/gemini-3-pro-image-preview";
+  const params = isGptImage2
+    ? {
+        prompt,
+        image_urls: imageUrls,
+        image_size: "1:1",
+        resolution: "1K",
+        quality: "low",
+        num_images: 1,
+        output_format: "png",
+      }
+    : {
+        prompt,
+        image_urls: imageUrls,
+        size: "1K",
+        aspect_ratio: "1:1",
+      };
+
+  const created = await apizRequest("/api/v3/tasks/create", { model, params, channel: null });
+  const taskId = created?.data?.task_id || created?.data?.id || created?.task_id || created?.id;
+  if (!taskId) throw new Error("模型服务没有返回任务 ID。");
+  return waitForApizTask(taskId);
+}
+
+async function callSelectedImageModel(prompt, images, model, provider, imageUrls) {
+  if (provider === "gpt-image-2" || provider === "banana-pro") return callApizImage(prompt, imageUrls, provider);
+  return callArkImage(prompt, images, model);
+}
+
 function mockResult(item, images) {
   return { ...item, url: images[item.index % images.length]?.dataUrl || images[0]?.dataUrl || "", mock: true };
 }
@@ -119,27 +219,43 @@ async function handleGenerate(req, res) {
     const images = Array.isArray(body.images) ? body.images.slice(0, 8) : [];
     const settings = body.settings || {};
     const model = modelFromSettings(settings);
+    const provider = ["gpt-image-2", "banana-pro"].includes(settings.modelProvider) ? settings.modelProvider : "ark";
     if (!images.length) return sendJson(res, 400, { error: "请至少上传 1 张产品图。" });
 
     let items = selectedOutputs(settings);
     const limit = Number(settings.limit || 0);
     if (Number.isFinite(limit) && limit > 0) items = items.slice(0, limit);
-    if (DRY_RUN) return sendJson(res, 200, { mode: "mock", model: ARK_MODEL, results: items.map((item) => mockResult(item, images)) });
+    if (DRY_RUN && provider === "ark") return sendJson(res, 200, { mode: "mock", model: ARK_MODEL, results: items.map((item) => mockResult(item, images)) });
 
     const results = [];
+    const imageUrls = provider === "ark" ? [] : createPublicImageUrls(req, images);
     for (const item of items) {
       try {
         const prompt = promptFor(item, settings);
-        const url = await callArkImage(prompt, images, model);
+        const url = await callSelectedImageModel(prompt, images, model, provider, imageUrls);
         results.push({ ...item, url, prompt });
       } catch (error) {
         results.push({ ...item, error: error.message });
       }
     }
-    sendJson(res, 200, { mode: "real", model, results });
+    sendJson(res, 200, { mode: "real", model, provider, results });
   } catch (error) {
     sendJson(res, 500, { error: error.message });
   }
+}
+
+function serveUpload(req, res) {
+  const id = decodeURIComponent(req.url.split("?")[0].replace("/uploads/", ""));
+  const upload = uploadStore.get(id);
+  if (!upload) {
+    res.writeHead(404);
+    return res.end("Not found");
+  }
+  res.writeHead(200, {
+    "Content-Type": upload.mime,
+    "Cache-Control": "public, max-age=3600",
+  });
+  res.end(upload.buffer);
 }
 
 function serveStatic(req, res) {
@@ -162,6 +278,7 @@ function serveStatic(req, res) {
 const server = http.createServer((req, res) => {
   if (req.url === "/api/health") return sendJson(res, 200, { hasApiKey: Boolean(ARK_API_KEY), dryRun: DRY_RUN, model: ARK_MODEL, models: allowedModels });
   if (req.url === "/api/generate" && req.method === "POST") return handleGenerate(req, res);
+  if (req.url.startsWith("/uploads/")) return serveUpload(req, res);
   serveStatic(req, res);
 });
 
