@@ -159,6 +159,8 @@ async function callArkImage(prompt, images, model) {
     prompt,
     size: "1920x1920",
     response_format: "b64_json",
+    watermark: false,
+    add_watermark: false,
     n: 1,
     image: images.map((img) => img.dataUrl),
   };
@@ -234,12 +236,16 @@ async function callApizImage(prompt, imageUrls, provider) {
         quality: "low",
         num_images: 1,
         output_format: "png",
+        watermark: false,
+        add_watermark: false,
       }
     : {
         prompt,
         image_urls: imageUrls,
         size: "1K",
         aspect_ratio: "1:1",
+        watermark: false,
+        add_watermark: false,
       };
 
   const created = await apizRequest("/api/v3/tasks/create", { model, params, channel: null });
