@@ -575,7 +575,6 @@ function setup() {
       document.querySelectorAll(".mode-card").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
       currentQuality = button.dataset.quality === "pro" ? "pro" : "standard";
-      selectProvider(currentQuality === "pro" ? "banana-pro" : "ark");
       syncLimitOptions();
       updateSummary();
       clearResults(false);
