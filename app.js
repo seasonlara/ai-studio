@@ -34,6 +34,7 @@ const outputs = {
 let uploadedImages = [];
 let currentMode = "main";
 let currentQuality = "standard";
+let activeJobPoll = null;
 const maxUploadImages = 8;
 const $ = (id) => document.getElementById(id);
 
@@ -230,6 +231,49 @@ function renderFinishedCards(items) {
   $("resultHint").textContent = failed ? `${failed} 张生成失败，可调整图片或补充信息后重试。` : "图片已生成，可点击图片放大查看。";
 }
 
+function renderJob(job) {
+  const grid = $("resultGrid");
+  grid.classList.remove("empty-state");
+  grid.innerHTML = "";
+  const items = job.results || [];
+  items.forEach((item) => {
+    const label = item.status === "done" ? "已完成" : item.status === "error" ? "失败" : item.status === "running" ? "生成中" : "排队中";
+    grid.appendChild(createImageCard(item, label));
+  });
+
+  const completed = job.completed || items.filter((item) => item.status === "done" || item.status === "error").length;
+  const total = job.total || items.length;
+  const failed = job.failed || items.filter((item) => item.status === "error").length;
+  const finished = ["completed", "partial_failed", "failed"].includes(job.status);
+
+  $("taskStatus").textContent = finished ? (failed ? "部分失败" : "已完成") : "生成中";
+  $("taskCount").textContent = finished ? `已完成 ${completed} / ${total} 张` : `正在生成 ${completed} / ${total} 张`;
+  $("resultHint").textContent = finished
+    ? failed
+      ? `${failed} 张生成失败，可调整图片或补充信息后重试。`
+      : "图片已生成，可点击图片放大查看。"
+    : "任务已提交，系统会自动刷新生成进度。";
+}
+
+async function pollJob(jobId) {
+  if (activeJobPoll) clearTimeout(activeJobPoll);
+  try {
+    const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "查询任务失败");
+    const job = data.job;
+    renderJob(job);
+    if (!["completed", "partial_failed", "failed"].includes(job.status)) {
+      activeJobPoll = setTimeout(() => pollJob(jobId), 3000);
+    } else {
+      activeJobPoll = null;
+    }
+  } catch (error) {
+    renderError(error.message);
+    activeJobPoll = null;
+  }
+}
+
 function renderError(message) {
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
@@ -331,6 +375,10 @@ async function generateImages() {
     return;
   }
 
+  if (activeJobPoll) {
+    clearTimeout(activeJobPoll);
+    activeJobPoll = null;
+  }
   const selected = visibleOutputs();
   renderPendingCards(selected);
   try {
@@ -341,13 +389,22 @@ async function generateImages() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "生成请求失败");
-    renderFinishedCards(data.results || []);
+    if (data.job?.id) {
+      renderJob(data.job);
+      pollJob(data.job.id);
+    } else {
+      renderFinishedCards(data.results || []);
+    }
   } catch (error) {
     renderError(error.message);
   }
 }
 
 function clearResults(resetStatus = true) {
+  if (activeJobPoll) {
+    clearTimeout(activeJobPoll);
+    activeJobPoll = null;
+  }
   const grid = $("resultGrid");
   grid.className = "result-grid empty-state";
   grid.innerHTML = `<div><strong>等待生成</strong><span>完成后会在这里显示图片。</span></div>`;

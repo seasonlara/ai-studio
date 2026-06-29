@@ -13,6 +13,7 @@ const AIGC51_TOKEN = process.env.AIGC51_TOKEN || "";
 const DRY_RUN = process.env.ARK_DRY_RUN === "1" || !ARK_API_KEY;
 const root = __dirname;
 const uploadStore = new Map();
+const jobs = new Map();
 const allowedModels = {
   "doubao-seedream-5-0-260128": "Doubao Seedream 5.0",
   "doubao-seedream-4-5-251128": "Doubao Seedream 4.5",
@@ -92,6 +93,20 @@ const detailTitles = ["核心卖点总览", "安装/使用流程", "升级比较
 function sendJson(res, status, data) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
+}
+
+function jobSnapshot(job) {
+  return {
+    id: job.id,
+    status: job.status,
+    provider: job.provider,
+    model: job.model,
+    total: job.results.length,
+    completed: job.results.filter((item) => item.status === "done" || item.status === "error").length,
+    failed: job.results.filter((item) => item.status === "error").length,
+    results: job.results,
+    error: job.error || "",
+  };
 }
 
 function publicBaseUrl(req) {
@@ -309,8 +324,38 @@ async function callSelectedImageModel(prompt, images, model, provider, imageUrls
   return callArkImage(prompt, images, model);
 }
 
+async function runWithConcurrency(items, limit, worker) {
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+}
+
+async function runGenerationJob(job, images, settings, imageUrls) {
+  job.status = "running";
+  const concurrency = job.provider === "ark" ? 1 : 3;
+  await runWithConcurrency(job.results, concurrency, async (item, index) => {
+    job.results[index] = { ...item, status: "running" };
+    try {
+      const prompt = promptFor(item, settings);
+      const url = await callSelectedImageModel(prompt, images, job.model, job.provider, imageUrls);
+      job.results[index] = { ...item, status: "done", url, prompt };
+    } catch (error) {
+      job.results[index] = { ...item, status: "error", error: error.message };
+    }
+  });
+
+  job.status = job.results.some((item) => item.status === "error") ? "partial_failed" : "completed";
+  job.finishedAt = Date.now();
+}
+
 function mockResult(item, images) {
-  return { ...item, url: images[item.index % images.length]?.dataUrl || images[0]?.dataUrl || "", mock: true };
+  return { ...item, status: "done", url: images[item.index % images.length]?.dataUrl || images[0]?.dataUrl || "", mock: true };
 }
 
 async function handleGenerate(req, res) {
@@ -325,23 +370,40 @@ async function handleGenerate(req, res) {
     let items = selectedOutputs(settings);
     const limit = Number(settings.limit || 0);
     if (Number.isFinite(limit) && limit > 0) items = items.slice(0, limit);
-    if (DRY_RUN && provider === "ark") return sendJson(res, 200, { mode: "mock", model: ARK_MODEL, results: items.map((item) => mockResult(item, images)) });
+    const job = {
+      id: crypto.randomUUID(),
+      status: "queued",
+      provider,
+      model,
+      createdAt: Date.now(),
+      results: items.map((item) => ({ ...item, status: "queued" })),
+    };
+    jobs.set(job.id, job);
 
-    const results = [];
-    const imageUrls = provider === "ark" ? [] : createPublicImageUrls(req, images);
-    for (const item of items) {
-      try {
-        const prompt = promptFor(item, settings);
-        const url = await callSelectedImageModel(prompt, images, model, provider, imageUrls);
-        results.push({ ...item, url, prompt });
-      } catch (error) {
-        results.push({ ...item, error: error.message });
-      }
+    if (DRY_RUN && provider === "ark") {
+      job.status = "completed";
+      job.results = items.map((item) => mockResult(item, images));
+      job.finishedAt = Date.now();
+      return sendJson(res, 202, { mode: "mock", job: jobSnapshot(job) });
     }
-    sendJson(res, 200, { mode: "real", model, provider, results });
+
+    const imageUrls = provider === "ark" ? [] : createPublicImageUrls(req, images);
+    runGenerationJob(job, images, settings, imageUrls).catch((error) => {
+      job.status = "failed";
+      job.error = error.message;
+      job.finishedAt = Date.now();
+    });
+    sendJson(res, 202, { mode: "real", job: jobSnapshot(job) });
   } catch (error) {
     sendJson(res, 500, { error: error.message });
   }
+}
+
+function handleJob(req, res) {
+  const id = decodeURIComponent(req.url.split("?")[0].replace("/api/jobs/", ""));
+  const job = jobs.get(id);
+  if (!job) return sendJson(res, 404, { error: "任务不存在或已过期。" });
+  return sendJson(res, 200, { job: jobSnapshot(job) });
 }
 
 function serveUpload(req, res) {
@@ -389,9 +451,20 @@ function serveStatic(req, res) {
 const server = http.createServer((req, res) => {
   if (req.url === "/api/health") return sendJson(res, 200, { hasApiKey: Boolean(ARK_API_KEY), dryRun: DRY_RUN, model: ARK_MODEL, models: allowedModels });
   if (req.url === "/api/generate" && req.method === "POST") return handleGenerate(req, res);
+  if (req.url.startsWith("/api/jobs/") && req.method === "GET") return handleJob(req, res);
   if (req.url.startsWith("/uploads/")) return serveUpload(req, res);
   serveStatic(req, res);
 });
+
+setInterval(() => {
+  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+  for (const [id, job] of jobs.entries()) {
+    if ((job.finishedAt || job.createdAt) < cutoff) jobs.delete(id);
+  }
+  for (const [id, upload] of uploadStore.entries()) {
+    if (upload.createdAt < cutoff) uploadStore.delete(id);
+  }
+}, 15 * 60 * 1000).unref();
 
 server.listen(PORT, () => {
   console.log(`Shopee AI Studio running at http://127.0.0.1:${PORT}`);
