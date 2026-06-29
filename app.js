@@ -34,6 +34,7 @@ let currentQuality = "standard";
 let activeJobPoll = null;
 let currentJobId = localStorage.getItem("activeGenerationJobId") || "";
 let isSubmitting = false;
+let hasUnsavedGeneratedResults = false;
 const maxUploadImages = 8;
 const $ = (id) => document.getElementById(id);
 
@@ -244,10 +245,15 @@ function setGenerateButtonState(disabled, label = "生成图像") {
   $("generateLabel").textContent = label;
 }
 
+function setUnsavedGeneratedResults(value) {
+  hasUnsavedGeneratedResults = Boolean(value);
+}
+
 function renderPendingCards(items) {
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = "";
+  setUnsavedGeneratedResults(false);
   items.forEach((item) => grid.appendChild(createImageCard(item, "生成中")));
   $("taskStatus").textContent = "生成中";
   $("taskCount").textContent = `正在生成 ${items.length} 张图片`;
@@ -259,6 +265,7 @@ function renderFinishedCards(items) {
   grid.classList.remove("empty-state");
   grid.innerHTML = "";
   items.forEach((item) => grid.appendChild(createImageCard(item, item.error ? "失败" : "已完成")));
+  setUnsavedGeneratedResults(items.some((item) => item.url && !item.error));
   const failed = items.filter((item) => item.error).length;
   $("taskStatus").textContent = failed ? "部分失败" : "已完成";
   $("taskCount").textContent = `一次生成即得 ${items.length} 张精选图`;
@@ -278,6 +285,7 @@ function renderJob(job) {
     const label = item.status === "done" ? "已完成" : item.status === "error" ? "失败" : item.status === "running" ? "生成中" : "排队中";
     grid.appendChild(createImageCard(item, label));
   });
+  setUnsavedGeneratedResults(items.some((item) => item.status === "done" && item.url));
 
   const completed = job.completed || items.filter((item) => item.status === "done" || item.status === "error").length;
   const total = job.total || items.length;
@@ -338,6 +346,7 @@ function renderError(message) {
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = `<div class="error-box"><strong>生成失败</strong><br>${message}</div>`;
+  setUnsavedGeneratedResults(false);
   $("taskStatus").textContent = "失败";
   setGenerateButtonState(false);
 }
@@ -492,9 +501,18 @@ function clearResults(resetStatus = true) {
   const grid = $("resultGrid");
   grid.className = "result-grid empty-state";
   grid.innerHTML = `<div><strong>等待生成</strong><span>完成后会在这里显示图片。</span></div>`;
+  setUnsavedGeneratedResults(false);
   $("resultHint").textContent = "结果会保留在当前页面，可点击图片放大查看。";
   if (resetStatus) $("taskStatus").textContent = uploadedImages.length ? "图片已就绪" : "等待上传";
   setGenerateButtonState(false);
+}
+
+function setupUnsavedResultGuard() {
+  window.addEventListener("beforeunload", (event) => {
+    if (!hasUnsavedGeneratedResults) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
 }
 
 function setupDragUpload() {
@@ -550,6 +568,7 @@ function setup() {
   $("generateBtn").addEventListener("click", generateImages);
   $("clearBtn").addEventListener("click", () => clearResults(true));
   setupDragUpload();
+  setupUnsavedResultGuard();
   syncLimitOptions();
   updateSummary();
   if (currentJobId) {
