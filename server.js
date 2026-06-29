@@ -11,6 +11,8 @@ const ARK_API_KEY = process.env.ARK_API_KEY || "";
 const APIZ_API_BASE = process.env.APIZ_API_BASE || "https://api.apiz.ai";
 const AIGC51_TOKEN = process.env.AIGC51_TOKEN || "";
 const DRY_RUN = process.env.ARK_DRY_RUN === "1" || !ARK_API_KEY;
+const APIZ_TASK_TIMEOUT_MS = Number(process.env.APIZ_TASK_TIMEOUT_MS || 10 * 60 * 1000);
+const APIZ_TASK_POLL_INTERVAL_MS = Number(process.env.APIZ_TASK_POLL_INTERVAL_MS || 5000);
 const root = __dirname;
 const uploadStore = new Map();
 const jobs = new Map();
@@ -491,7 +493,7 @@ function apizImageUrl(data) {
 }
 
 async function waitForApizTask(taskId) {
-  const deadline = Date.now() + 150000;
+  const deadline = Date.now() + APIZ_TASK_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const data = await apizRequest("/api/v3/tasks/query", { task_id: taskId });
     const task = data?.data || data || {};
@@ -503,9 +505,9 @@ async function waitForApizTask(taskId) {
     if (task.status === "failed" || task.status === "error") {
       throw new Error(task.error || task.message || "图片生成失败。");
     }
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, APIZ_TASK_POLL_INTERVAL_MS));
   }
-  throw new Error("图片生成超时，请稍后重试。");
+  throw new Error("图片生成等待超时。模型可能仍在排队或生成中，请稍后重新生成该单张图片。");
 }
 
 async function callApizImage(prompt, imageUrls, provider) {
