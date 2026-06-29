@@ -119,6 +119,7 @@ function setMode(mode) {
   document.querySelectorAll(".content-option").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
   if (mode === "detail") $("includeDetailDeal").checked = false;
   $("detailBatchField").hidden = mode !== "detail";
+  $("detailDealStrip").hidden = mode === "detail";
   syncLimitOptions();
   updateSummary();
   clearResults(false);
@@ -569,6 +570,7 @@ function setupDragUpload() {
 }
 
 function setup() {
+  $("detailDealStrip").hidden = currentMode === "detail";
   document.querySelectorAll(".content-option").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
   document.querySelectorAll(".mode-card").forEach((button) => {
     button.addEventListener("click", () => {
