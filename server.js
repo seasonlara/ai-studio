@@ -105,6 +105,7 @@ function jobSnapshot(job) {
     completed: job.results.filter((item) => item.status === "done" || item.status === "error").length,
     failed: job.results.filter((item) => item.status === "error").length,
     results: job.results,
+    retryable: job.results.some((item) => item.status === "error"),
     error: job.error || "",
   };
 }
@@ -241,8 +242,8 @@ async function callArkImage(prompt, images, model) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error?.message || data.message || `Ark API 请求失败：${response.status}`);
   const first = data.data?.[0] || {};
-  if (first.b64_json) return `data:image/png;base64,${first.b64_json}`;
-  if (first.url) return first.url;
+  if (first.b64_json) return { url: `data:image/png;base64,${first.b64_json}` };
+  if (first.url) return { url: first.url };
   throw new Error("Ark API 未返回图片 URL 或 base64。");
 }
 
@@ -277,7 +278,7 @@ async function waitForApizTask(taskId) {
     const task = data?.data || data || {};
     if (task.status === "completed" || task.status === "succeeded" || task.status === "success") {
       const url = apizImageUrl(data);
-      if (url) return url;
+      if (url) return { url, externalTaskId: taskId };
       throw new Error("任务已完成，但没有返回图片地址。");
     }
     if (task.status === "failed" || task.status === "error") {
@@ -338,20 +339,32 @@ async function runWithConcurrency(items, limit, worker) {
 
 async function runGenerationJob(job, images, settings, imageUrls) {
   job.status = "running";
+  const indexes = job.results.map((_, index) => index);
+  await runGenerationItems(job, images, settings, imageUrls, indexes);
+}
+
+async function runGenerationItems(job, images, settings, imageUrls, indexes) {
+  job.status = "running";
   const concurrency = job.provider === "ark" ? 1 : 3;
-  await runWithConcurrency(job.results, concurrency, async (item, index) => {
+  await runWithConcurrency(indexes, concurrency, async (resultIndex) => {
+    const item = job.results[resultIndex];
+    const index = resultIndex;
     job.results[index] = { ...item, status: "running" };
     try {
       const prompt = promptFor(item, settings);
-      const url = await callSelectedImageModel(prompt, images, job.model, job.provider, imageUrls);
-      job.results[index] = { ...item, status: "done", url, prompt };
+      const output = await callSelectedImageModel(prompt, images, job.model, job.provider, imageUrls);
+      job.results[index] = { ...item, status: "done", url: output.url, prompt, externalTaskId: output.externalTaskId || "" };
     } catch (error) {
       job.results[index] = { ...item, status: "error", error: error.message };
     }
   });
 
-  job.status = job.results.some((item) => item.status === "error") ? "partial_failed" : "completed";
-  job.finishedAt = Date.now();
+  const hasRunning = job.results.some((item) => item.status === "queued" || item.status === "running");
+  const hasError = job.results.some((item) => item.status === "error");
+  if (!hasRunning) {
+    job.status = hasError ? "partial_failed" : "completed";
+    job.finishedAt = Date.now();
+  }
 }
 
 function mockResult(item, images) {
@@ -365,7 +378,13 @@ async function handleGenerate(req, res) {
     const settings = body.settings || {};
     const model = modelFromSettings(settings);
     const provider = ["gpt-image-2", "banana-pro"].includes(settings.modelProvider) ? settings.modelProvider : "ark";
+    const clientRequestId = String(body.clientRequestId || "");
     if (!images.length) return sendJson(res, 400, { error: "请至少上传 1 张产品图。" });
+
+    if (clientRequestId) {
+      const existing = [...jobs.values()].find((job) => job.clientRequestId === clientRequestId);
+      if (existing) return sendJson(res, 202, { mode: existing.mock ? "mock" : "real", job: jobSnapshot(existing), reused: true });
+    }
 
     let items = selectedOutputs(settings);
     const limit = Number(settings.limit || 0);
@@ -375,6 +394,8 @@ async function handleGenerate(req, res) {
       status: "queued",
       provider,
       model,
+      clientRequestId,
+      mock: DRY_RUN && provider === "ark",
       createdAt: Date.now(),
       results: items.map((item) => ({ ...item, status: "queued" })),
     };
@@ -388,6 +409,7 @@ async function handleGenerate(req, res) {
     }
 
     const imageUrls = provider === "ark" ? [] : createPublicImageUrls(req, images);
+    job.context = { images, settings, imageUrls };
     runGenerationJob(job, images, settings, imageUrls).catch((error) => {
       job.status = "failed";
       job.error = error.message;
@@ -404,6 +426,28 @@ function handleJob(req, res) {
   const job = jobs.get(id);
   if (!job) return sendJson(res, 404, { error: "任务不存在或已过期。" });
   return sendJson(res, 200, { job: jobSnapshot(job) });
+}
+
+function handleRetryFailed(req, res) {
+  const id = decodeURIComponent(req.url.split("?")[0].replace("/api/jobs/", "").replace("/retry-failed", ""));
+  const job = jobs.get(id);
+  if (!job) return sendJson(res, 404, { error: "任务不存在或已过期。" });
+  if (["queued", "running"].includes(job.status)) return sendJson(res, 409, { error: "任务仍在生成中，请等待完成后再重试失败项。" });
+
+  const failedIndexes = job.results.map((item, index) => (item.status === "error" ? index : -1)).filter((index) => index >= 0);
+  if (!failedIndexes.length) return sendJson(res, 200, { job: jobSnapshot(job), message: "没有需要重试的失败项。" });
+  if (!job.context) return sendJson(res, 409, { error: "当前任务缺少原始上下文，无法只重试失败项。请重新上传后生成。" });
+
+  for (const index of failedIndexes) {
+    const item = job.results[index];
+    job.results[index] = { type: item.type, kind: item.kind, title: item.title, index: item.index, status: "queued" };
+  }
+  runGenerationItems(job, job.context.images, job.context.settings, job.context.imageUrls, failedIndexes).catch((error) => {
+    job.status = "partial_failed";
+    job.error = error.message;
+    job.finishedAt = Date.now();
+  });
+  return sendJson(res, 202, { job: jobSnapshot(job), retried: failedIndexes.length });
 }
 
 function serveUpload(req, res) {
@@ -455,6 +499,7 @@ const server = http.createServer((req, res) => {
   if (req.url === "/api/health") return sendJson(res, 200, { hasApiKey: Boolean(ARK_API_KEY), dryRun: DRY_RUN, model: ARK_MODEL, models: allowedModels });
   if (req.url === "/api/generate" && req.method === "POST") return handleGenerate(req, res);
   if (req.url.startsWith("/api/jobs/") && req.method === "GET") return handleJob(req, res);
+  if (req.url.startsWith("/api/jobs/") && req.url.includes("/retry-failed") && req.method === "POST") return handleRetryFailed(req, res);
   if (req.url.startsWith("/uploads/")) return serveUpload(req, res);
   serveStatic(req, res);
 });

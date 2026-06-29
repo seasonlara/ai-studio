@@ -35,6 +35,8 @@ let uploadedImages = [];
 let currentMode = "main";
 let currentQuality = "standard";
 let activeJobPoll = null;
+let currentJobId = localStorage.getItem("activeGenerationJobId") || "";
+let isSubmitting = false;
 const maxUploadImages = 8;
 const $ = (id) => document.getElementById(id);
 
@@ -220,6 +222,12 @@ function payload() {
   };
 }
 
+function setGenerateButtonState(disabled, label = "生成图像") {
+  const button = $("generateBtn");
+  button.disabled = disabled;
+  $("generateLabel").textContent = label;
+}
+
 function renderPendingCards(items) {
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
@@ -242,6 +250,10 @@ function renderFinishedCards(items) {
 }
 
 function renderJob(job) {
+  currentJobId = job.id || currentJobId;
+  if (currentJobId && !["completed", "partial_failed", "failed"].includes(job.status)) {
+    localStorage.setItem("activeGenerationJobId", currentJobId);
+  }
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = "";
@@ -263,6 +275,8 @@ function renderJob(job) {
       ? `${failed} 张生成失败，可调整图片或补充信息后重试。`
       : "图片已生成，可点击图片放大查看。"
     : "任务已提交，系统会自动刷新生成进度。";
+  setGenerateButtonState(!finished, finished ? "生成图像" : "生成中...");
+  if (job.status === "completed" || job.status === "failed") localStorage.removeItem("activeGenerationJobId");
 }
 
 async function pollJob(jobId) {
@@ -277,10 +291,30 @@ async function pollJob(jobId) {
       activeJobPoll = setTimeout(() => pollJob(jobId), 3000);
     } else {
       activeJobPoll = null;
+      setGenerateButtonState(false);
     }
   } catch (error) {
     renderError(error.message);
     activeJobPoll = null;
+    setGenerateButtonState(false);
+  }
+}
+
+async function retryFailedJob(jobId) {
+  if (!jobId || isSubmitting) return;
+  isSubmitting = true;
+  setGenerateButtonState(true, "重试中...");
+  try {
+    const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/retry-failed`, { method: "POST" });
+    const data = await readJsonResponse(res, "重试失败项失败");
+    if (!res.ok) throw new Error(data.error || "重试失败项失败");
+    renderJob(data.job);
+    pollJob(data.job.id);
+  } catch (error) {
+    renderError(error.message);
+    setGenerateButtonState(false);
+  } finally {
+    isSubmitting = false;
   }
 }
 
@@ -289,6 +323,7 @@ function renderError(message) {
   grid.classList.remove("empty-state");
   grid.innerHTML = `<div class="error-box"><strong>生成失败</strong><br>${message}</div>`;
   $("taskStatus").textContent = "失败";
+  setGenerateButtonState(false);
 }
 
 function openImageModal(item) {
@@ -365,8 +400,15 @@ function createImageCard(item, status) {
 
   const retry = document.createElement("button");
   retry.type = "button";
-  retry.textContent = "重试";
-  retry.addEventListener("click", generateImages);
+  retry.textContent = item.status === "error" ? "重试失败项" : "重新生成";
+  retry.disabled = item.status === "queued" || item.status === "running";
+  retry.addEventListener("click", () => {
+    if (item.status === "error" && currentJobId) {
+      retryFailedJob(currentJobId);
+    } else {
+      generateImages();
+    }
+  });
 
   actions.appendChild(download);
   actions.appendChild(retry);
@@ -380,26 +422,34 @@ function createImageCard(item, status) {
 
 async function generateImages() {
   updateSummary();
+  if (isSubmitting) return;
   if (!uploadedImages.length) {
     renderError("请先上传至少 1 张商品图片。");
     return;
   }
 
+  isSubmitting = true;
+  setGenerateButtonState(true, "提交中...");
   if (activeJobPoll) {
     clearTimeout(activeJobPoll);
     activeJobPoll = null;
   }
+  currentJobId = "";
+  localStorage.removeItem("activeGenerationJobId");
   const selected = visibleOutputs();
   renderPendingCards(selected);
   try {
+    const clientRequestId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload()),
+      body: JSON.stringify({ ...payload(), clientRequestId }),
     });
     const data = await readJsonResponse(res, "提交任务失败");
     if (!res.ok) throw new Error(data.error || "生成请求失败");
     if (data.job?.id) {
+      currentJobId = data.job.id;
+      localStorage.setItem("activeGenerationJobId", currentJobId);
       renderJob(data.job);
       pollJob(data.job.id);
     } else {
@@ -407,6 +457,8 @@ async function generateImages() {
     }
   } catch (error) {
     renderError(error.message);
+  } finally {
+    isSubmitting = false;
   }
 }
 
@@ -415,11 +467,14 @@ function clearResults(resetStatus = true) {
     clearTimeout(activeJobPoll);
     activeJobPoll = null;
   }
+  currentJobId = "";
+  localStorage.removeItem("activeGenerationJobId");
   const grid = $("resultGrid");
   grid.className = "result-grid empty-state";
   grid.innerHTML = `<div><strong>等待生成</strong><span>完成后会在这里显示图片。</span></div>`;
   $("resultHint").textContent = "结果会保留在当前页面，可点击图片放大查看。";
   if (resetStatus) $("taskStatus").textContent = uploadedImages.length ? "图片已就绪" : "等待上传";
+  setGenerateButtonState(false);
 }
 
 function setupDragUpload() {
@@ -472,6 +527,11 @@ function setup() {
   setupDragUpload();
   syncLimitOptions();
   updateSummary();
+  if (currentJobId) {
+    $("taskStatus").textContent = "恢复任务";
+    $("resultHint").textContent = "检测到未完成任务，正在恢复查询。";
+    pollJob(currentJobId);
+  }
 }
 
 setup();
