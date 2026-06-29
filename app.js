@@ -365,11 +365,12 @@ function renderError(message) {
 
 function openImageModal(item) {
   if (!item.url || item.error) return;
+  const displayTitle = imageDisplayTitle(item);
   $("modalImage").src = item.url;
-  $("modalImage").alt = item.title;
-  $("modalTitle").textContent = `${item.type} ${String(item.index).padStart(2, "0")}｜${item.title}`;
+  $("modalImage").alt = displayTitle;
+  $("modalTitle").textContent = displayTitle;
   $("modalDownload").href = item.url;
-  $("modalDownload").download = `${item.kind}-${String(item.index).padStart(2, "0")}.png`;
+  $("modalDownload").download = imageDownloadName(item);
   $("imageModal").hidden = false;
   document.body.classList.add("modal-open");
 }
@@ -378,6 +379,24 @@ function closeImageModal() {
   $("imageModal").hidden = true;
   $("modalImage").removeAttribute("src");
   document.body.classList.remove("modal-open");
+}
+
+function extractCoreProductName(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const segments = text.split(/[\s,，、;；:：|｜/／\\\-—_]+/).map((item) => item.trim()).filter(Boolean);
+  const candidate = segments.find((item) => /[\u4e00-\u9fa5A-Za-z0-9]/.test(item)) || "";
+  return candidate.slice(0, 14);
+}
+
+function imageDisplayTitle(item) {
+  const baseTitle = `${item.type} ${String(item.index).padStart(2, "0")}｜${item.title}`;
+  const productName = extractCoreProductName($("productName")?.value);
+  return productName ? `${productName}-${baseTitle}` : baseTitle;
+}
+
+function imageDownloadName(item) {
+  return `${imageDisplayTitle(item).replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")}.png`;
 }
 
 function createImageCard(item, status) {
@@ -399,13 +418,14 @@ function createImageCard(item, status) {
     placeholder.textContent = item.error;
     image.appendChild(placeholder);
   } else if (item.url) {
+    const displayTitle = imageDisplayTitle(item);
     const img = document.createElement("img");
     img.src = item.url;
-    img.alt = item.title;
+    img.alt = displayTitle;
     const zoomButton = document.createElement("button");
     zoomButton.type = "button";
     zoomButton.className = "image-zoom-button";
-    zoomButton.setAttribute("aria-label", `查看大图：${item.title}`);
+    zoomButton.setAttribute("aria-label", `查看大图：${displayTitle}`);
     zoomButton.addEventListener("click", () => openImageModal(item));
     zoomButton.appendChild(img);
     image.appendChild(zoomButton);
@@ -424,7 +444,7 @@ function createImageCard(item, status) {
   const caption = document.createElement("div");
   caption.className = "image-caption";
   const title = document.createElement("strong");
-  title.textContent = `${item.type} ${String(item.index).padStart(2, "0")}｜${item.title}`;
+  title.textContent = imageDisplayTitle(item);
   const meta = document.createElement("span");
   meta.textContent = item.error ? "生成失败" : item.url ? "1:1 电商图" : "生成完成后可下载";
   const actions = document.createElement("div");
@@ -433,7 +453,7 @@ function createImageCard(item, status) {
   const download = document.createElement("a");
   download.textContent = "下载";
   download.href = item.url || "#";
-  download.download = `${item.kind}-${String(item.index).padStart(2, "0")}.png`;
+  download.download = imageDownloadName(item);
   if (!item.url || item.error) download.classList.add("disabled");
 
   const retry = document.createElement("button");
