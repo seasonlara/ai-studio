@@ -134,8 +134,19 @@ async function readJsonResponse(response, fallbackMessage) {
     return JSON.parse(text);
   } catch {
     const preview = text.replace(/\s+/g, " ").slice(0, 120);
+    if (preview.startsWith("<!doctype") || preview.startsWith("<html") || preview.includes("<title>")) {
+      throw new Error(`${fallbackMessage}：服务返回了网页内容而不是任务数据。请刷新页面后重试；如果刚部署过，请等待部署完成。`);
+    }
     throw new Error(`${fallbackMessage}：服务返回了非 JSON 内容（HTTP ${response.status}）。${preview}`);
   }
+}
+
+function readableNetworkError(error, fallbackMessage) {
+  const message = String(error?.message || error || "");
+  if (message === "Failed to fetch" || message.includes("NetworkError")) {
+    return `${fallbackMessage}：无法连接生成服务。请确认当前页面使用的是本地测试地址或公网部署地址，并检查服务是否仍在运行。`;
+  }
+  return message || fallbackMessage;
 }
 
 function readFileAsDataUrl(file) {
@@ -299,7 +310,7 @@ async function pollJob(jobId) {
       setGenerateButtonState(false);
     }
   } catch (error) {
-    renderError(error.message);
+    renderError(readableNetworkError(error, "查询任务失败"));
     activeJobPoll = null;
     setGenerateButtonState(false);
   }
@@ -316,7 +327,7 @@ async function retryFailedJob(jobId) {
     renderJob(data.job);
     pollJob(data.job.id);
   } catch (error) {
-    renderError(error.message);
+    renderError(readableNetworkError(error, "重试失败项失败"));
     setGenerateButtonState(false);
   } finally {
     isSubmitting = false;
@@ -465,7 +476,7 @@ async function generateImages() {
       renderFinishedCards(data.results || []);
     }
   } catch (error) {
-    renderError(error.message);
+    renderError(readableNetworkError(error, "提交任务失败"));
   } finally {
     isSubmitting = false;
   }
