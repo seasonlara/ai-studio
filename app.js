@@ -481,6 +481,11 @@ function createImageCard(item, status) {
 async function generateImages() {
   updateSummary();
   if (isSubmitting) return;
+  if (!$("productName").value.trim()) {
+    alert("请先填写产品标题。");
+    $("productName").focus();
+    return;
+  }
   if (isFilePreview()) {
     renderError("当前是直接打开的 HTML 文件，无法连接生成服务。请使用本地测试地址 http://127.0.0.1:8792/ 或公网网站访问后再生成。");
     return;
