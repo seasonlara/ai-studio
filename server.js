@@ -360,7 +360,18 @@ function serveUpload(req, res) {
 
 function serveStatic(req, res) {
   const rawPath = decodeURIComponent(req.url.split("?")[0]);
-  const filePath = path.join(root, rawPath === "/" ? "index.html" : rawPath);
+  const publicFiles = new Map([
+    ["/", "index.html"],
+    ["/index.html", "index.html"],
+    ["/app.js", "app.js"],
+    ["/styles.css", "styles.css"],
+  ]);
+  const publicFile = publicFiles.get(rawPath);
+  if (!publicFile) {
+    res.writeHead(404);
+    return res.end("Not found");
+  }
+  const filePath = path.join(root, publicFile);
   if (!filePath.startsWith(root)) {
     res.writeHead(403);
     return res.end("Forbidden");
