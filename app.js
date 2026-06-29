@@ -249,7 +249,16 @@ function setUnsavedGeneratedResults(value) {
   hasUnsavedGeneratedResults = Boolean(value);
 }
 
+function showResultsPanel() {
+  $("resultsPanel").hidden = false;
+}
+
+function hideResultsPanel() {
+  $("resultsPanel").hidden = true;
+}
+
 function renderPendingCards(items) {
+  showResultsPanel();
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = "";
@@ -261,6 +270,7 @@ function renderPendingCards(items) {
 }
 
 function renderFinishedCards(items) {
+  showResultsPanel();
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = "";
@@ -273,6 +283,7 @@ function renderFinishedCards(items) {
 }
 
 function renderJob(job) {
+  showResultsPanel();
   currentJobId = job.id || currentJobId;
   if (currentJobId && !["completed", "partial_failed", "failed"].includes(job.status)) {
     localStorage.setItem("activeGenerationJobId", currentJobId);
@@ -343,6 +354,7 @@ async function retryFailedJob(jobId) {
 }
 
 function renderError(message) {
+  showResultsPanel();
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = `<div class="error-box"><strong>生成失败</strong><br>${message}</div>`;
@@ -371,6 +383,8 @@ function closeImageModal() {
 function createImageCard(item, status) {
   const card = document.createElement("article");
   card.className = "image-card";
+  const isPending = !item.error && !item.url;
+  if (isPending) card.classList.add("is-pending");
 
   const image = document.createElement("div");
   image.className = "image-stage";
@@ -395,15 +409,14 @@ function createImageCard(item, status) {
     zoomButton.addEventListener("click", () => openImageModal(item));
     zoomButton.appendChild(img);
     image.appendChild(zoomButton);
-  } else if (uploadedImages[0]) {
-    const img = document.createElement("img");
-    img.src = uploadedImages[item.index % uploadedImages.length]?.objectUrl || uploadedImages[0].objectUrl;
-    img.alt = item.title;
-    image.appendChild(img);
   } else {
     const placeholder = document.createElement("div");
-    placeholder.className = "placeholder";
-    placeholder.textContent = "等待图片";
+    placeholder.className = "generation-placeholder";
+    placeholder.innerHTML = `
+      <span class="generation-spinner" aria-hidden="true"></span>
+      <strong>${status === "排队中" ? "等待排队" : "正在生成"}</strong>
+      <small>AI 正在绘制这张图片</small>
+    `;
     image.appendChild(placeholder);
   }
   image.appendChild(badge);
@@ -413,7 +426,7 @@ function createImageCard(item, status) {
   const title = document.createElement("strong");
   title.textContent = `${item.type} ${String(item.index).padStart(2, "0")}｜${item.title}`;
   const meta = document.createElement("span");
-  meta.textContent = item.error ? "生成失败" : "1:1 电商图";
+  meta.textContent = item.error ? "生成失败" : item.url ? "1:1 电商图" : "生成完成后可下载";
   const actions = document.createElement("div");
   actions.className = "card-actions";
 
@@ -502,6 +515,7 @@ function clearResults(resetStatus = true) {
   grid.className = "result-grid empty-state";
   grid.innerHTML = `<div><strong>等待生成</strong><span>完成后会在这里显示图片。</span></div>`;
   setUnsavedGeneratedResults(false);
+  hideResultsPanel();
   $("resultHint").textContent = "结果会保留在当前页面，可点击图片放大查看。";
   if (resetStatus) $("taskStatus").textContent = uploadedImages.length ? "图片已就绪" : "等待上传";
   setGenerateButtonState(false);
