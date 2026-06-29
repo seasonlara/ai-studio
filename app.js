@@ -33,6 +33,8 @@ let currentMode = "main";
 let currentQuality = "standard";
 let activeJobPoll = null;
 let currentJobId = localStorage.getItem("activeGenerationJobId") || "";
+const modeJobIds = { main: currentJobId, detail: "" };
+const resultStates = { main: { type: "empty" }, detail: { type: "empty" } };
 let isSubmitting = false;
 let hasUnsavedGeneratedResults = false;
 const maxUploadImages = 8;
@@ -122,7 +124,8 @@ function setMode(mode) {
   $("detailDealStrip").hidden = mode === "detail";
   syncLimitOptions();
   updateSummary();
-  clearResults(false);
+  syncCurrentJobId();
+  renderResultState(resultStates[currentMode]);
 }
 
 function selectProvider(provider) {
@@ -250,6 +253,39 @@ function setUnsavedGeneratedResults(value) {
   hasUnsavedGeneratedResults = Boolean(value);
 }
 
+function stateHasGeneratedResult(state) {
+  if (!state || state.type === "empty") return false;
+  const items = state.job?.results || state.items || [];
+  return items.some((item) => (item.status === "done" || item.url) && !item.error);
+}
+
+function syncUnsavedGeneratedResults() {
+  setUnsavedGeneratedResults(Object.values(resultStates).some(stateHasGeneratedResult));
+}
+
+function saveResultState(mode, state) {
+  resultStates[mode] = state;
+  syncUnsavedGeneratedResults();
+}
+
+function syncCurrentJobId() {
+  currentJobId = modeJobIds[currentMode] || "";
+}
+
+function successfulResultItems(state = resultStates[currentMode]) {
+  if (!state || state.type === "empty") return [];
+  const items = state.job?.results || state.items || [];
+  return items.filter((item) => (item.status === "done" || item.url) && item.url && !item.error);
+}
+
+function updateDownloadAllButton() {
+  const button = $("downloadAllBtn");
+  if (!button) return;
+  const count = successfulResultItems().length;
+  button.disabled = !count;
+  button.textContent = count ? `一键下载 (${count})` : "一键下载";
+}
+
 function showResultsPanel() {
   $("resultsPanel").hidden = false;
 }
@@ -258,32 +294,59 @@ function hideResultsPanel() {
   $("resultsPanel").hidden = true;
 }
 
-function renderPendingCards(items) {
+function renderResultState(state) {
+  if (!state || state.type === "empty") {
+    const grid = $("resultGrid");
+    grid.className = "result-grid empty-state";
+    grid.innerHTML = `<div><strong>等待生成</strong><span>完成后会在这里显示图片。</span></div>`;
+    hideResultsPanel();
+    $("resultHint").textContent = "结果会保留在当前页面，可点击图片放大查看。";
+    $("taskStatus").textContent = uploadedImages.length ? "图片已就绪" : "等待上传";
+    setGenerateButtonState(false);
+    updateDownloadAllButton();
+    return;
+  }
+  if (state.type === "pending") return renderPendingCards(state.items, currentMode, false);
+  if (state.type === "finished") return renderFinishedCards(state.items, currentMode, false);
+  if (state.type === "job") return renderJob(state.job, currentMode, false);
+}
+
+function renderPendingCards(items, mode = currentMode, persist = true) {
+  if (persist) saveResultState(mode, { type: "pending", items });
+  if (mode !== currentMode) return;
   showResultsPanel();
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = "";
-  setUnsavedGeneratedResults(false);
-  items.forEach((item) => grid.appendChild(createImageCard(item, "生成中")));
+  syncUnsavedGeneratedResults();
+  items.forEach((item, index) => grid.appendChild(createImageCard({ ...item, resultIndex: index }, "生成中")));
   $("taskStatus").textContent = "生成中";
   $("taskCount").textContent = `正在生成 ${items.length} 张图片`;
   $("resultHint").textContent = `正在使用 ${providerLabels[$("modelProvider").value]} 生成，请保持当前页面打开。`;
+  updateDownloadAllButton();
 }
 
-function renderFinishedCards(items) {
+function renderFinishedCards(items, mode = currentMode, persist = true) {
+  if (persist) saveResultState(mode, { type: "finished", items });
+  if (mode !== currentMode) return;
   showResultsPanel();
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = "";
-  items.forEach((item) => grid.appendChild(createImageCard(item, item.error ? "失败" : "已完成")));
-  setUnsavedGeneratedResults(items.some((item) => item.url && !item.error));
+  items.forEach((item, index) => grid.appendChild(createImageCard({ ...item, resultIndex: index }, item.error ? "失败" : "已完成")));
+  syncUnsavedGeneratedResults();
   const failed = items.filter((item) => item.error).length;
   $("taskStatus").textContent = failed ? "部分失败" : "已完成";
   $("taskCount").textContent = `一次生成即得 ${items.length} 张精选图`;
   $("resultHint").textContent = failed ? `${failed} 张生成失败，可调整图片或补充信息后重试。` : "图片已生成，可点击图片放大查看。";
+  updateDownloadAllButton();
 }
 
-function renderJob(job) {
+function renderJob(job, mode = currentMode, persist = true) {
+  if (persist) saveResultState(mode, { type: "job", job });
+  modeJobIds[mode] = job.id || modeJobIds[mode] || "";
+  syncCurrentJobId();
+  if (mode !== currentMode) return;
   showResultsPanel();
   currentJobId = job.id || currentJobId;
   if (currentJobId && !["completed", "partial_failed", "failed"].includes(job.status)) {
@@ -293,11 +356,11 @@ function renderJob(job) {
   grid.classList.remove("empty-state");
   grid.innerHTML = "";
   const items = job.results || [];
-  items.forEach((item) => {
+  items.forEach((item, index) => {
     const label = item.status === "done" ? "已完成" : item.status === "error" ? "失败" : item.status === "running" ? "生成中" : "排队中";
-    grid.appendChild(createImageCard(item, label));
+    grid.appendChild(createImageCard({ ...item, resultIndex: index }, label));
   });
-  setUnsavedGeneratedResults(items.some((item) => item.status === "done" && item.url));
+  syncUnsavedGeneratedResults();
 
   const completed = job.completed || items.filter((item) => item.status === "done" || item.status === "error").length;
   const total = job.total || items.length;
@@ -313,18 +376,19 @@ function renderJob(job) {
     : "任务已提交，系统会自动刷新生成进度。";
   setGenerateButtonState(!finished, finished ? "生成图像" : "生成中...");
   if (job.status === "completed" || job.status === "failed") localStorage.removeItem("activeGenerationJobId");
+  updateDownloadAllButton();
 }
 
-async function pollJob(jobId) {
+async function pollJob(jobId, mode = currentMode) {
   if (activeJobPoll) clearTimeout(activeJobPoll);
   try {
     const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
     const data = await readJsonResponse(res, "查询任务失败");
     if (!res.ok) throw new Error(data.error || "查询任务失败");
     const job = data.job;
-    renderJob(job);
+    renderJob(job, mode);
     if (!["completed", "partial_failed", "failed"].includes(job.status)) {
-      activeJobPoll = setTimeout(() => pollJob(jobId), 3000);
+      activeJobPoll = setTimeout(() => pollJob(jobId, mode), 3000);
     } else {
       activeJobPoll = null;
       setGenerateButtonState(false);
@@ -338,16 +402,36 @@ async function pollJob(jobId) {
 
 async function retryFailedJob(jobId) {
   if (!jobId || isSubmitting) return;
+  const mode = currentMode;
   isSubmitting = true;
   setGenerateButtonState(true, "重试中...");
   try {
     const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/retry-failed`, { method: "POST" });
     const data = await readJsonResponse(res, "重试失败项失败");
     if (!res.ok) throw new Error(data.error || "重试失败项失败");
-    renderJob(data.job);
-    pollJob(data.job.id);
+    renderJob(data.job, mode);
+    pollJob(data.job.id, mode);
   } catch (error) {
     renderError(readableNetworkError(error, "重试失败项失败"));
+    setGenerateButtonState(false);
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+async function regenerateResultItem(item) {
+  if (!currentJobId || !Number.isInteger(item.resultIndex) || isSubmitting) return;
+  const mode = currentMode;
+  isSubmitting = true;
+  setGenerateButtonState(true, "重新生成中...");
+  try {
+    const res = await fetch(`/api/jobs/${encodeURIComponent(currentJobId)}/retry-item/${item.resultIndex}`, { method: "POST" });
+    const data = await readJsonResponse(res, "重新生成失败");
+    if (!res.ok) throw new Error(data.error || "重新生成失败");
+    renderJob(data.job, mode);
+    pollJob(data.job.id, mode);
+  } catch (error) {
+    renderError(readableNetworkError(error, "重新生成失败"));
     setGenerateButtonState(false);
   } finally {
     isSubmitting = false;
@@ -359,9 +443,10 @@ function renderError(message) {
   const grid = $("resultGrid");
   grid.classList.remove("empty-state");
   grid.innerHTML = `<div class="error-box"><strong>生成失败</strong><br>${message}</div>`;
-  setUnsavedGeneratedResults(false);
+  syncUnsavedGeneratedResults();
   $("taskStatus").textContent = "失败";
   setGenerateButtonState(false);
+  updateDownloadAllButton();
 }
 
 function openImageModal(item) {
@@ -398,6 +483,67 @@ function imageDisplayTitle(item) {
 
 function imageDownloadName(item) {
   return `${imageDisplayTitle(item).replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")}.png`;
+}
+
+function safeFileSegment(value, fallback = "商品") {
+  return String(value || fallback).trim().replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-").replace(/\s+/g, " ").slice(0, 60) || fallback;
+}
+
+function todayStamp() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function downloadBundleName(items) {
+  const productTitle = safeFileSegment($("productName")?.value, "商品");
+  const kinds = new Set(items.map((item) => item.kind || (item.type === "主图" ? "main" : "detail")));
+  const typeText = kinds.size === 1 ? ([...kinds][0] === "main" ? "主图" : "详情图") : "主图详情图";
+  return `${productTitle}-${typeText}-${items.length}张-${todayStamp()}`;
+}
+
+async function downloadAllResults() {
+  const items = successfulResultItems();
+  if (!items.length || isSubmitting) return;
+  const button = $("downloadAllBtn");
+  const previousText = button.textContent;
+  button.disabled = true;
+  button.textContent = "打包中...";
+  try {
+    const bundleName = downloadBundleName(items);
+    const response = await fetch("/api/download-zip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        zipName: bundleName,
+        folderName: bundleName,
+        files: items.map((item) => ({
+          name: imageDownloadName(item),
+          url: item.url,
+        })),
+      }),
+    });
+    if (!response.ok) {
+      const data = await readJsonResponse(response, "打包下载失败");
+      throw new Error(data.error || "打包下载失败");
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `${bundleName}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    alert(readableNetworkError(error, "打包下载失败"));
+  } finally {
+    button.textContent = previousText;
+    updateDownloadAllButton();
+  }
 }
 
 function createImageCard(item, status) {
@@ -459,10 +605,12 @@ function createImageCard(item, status) {
 
   const retry = document.createElement("button");
   retry.type = "button";
-  retry.textContent = item.status === "error" ? "重试失败项" : "重新生成";
+  retry.textContent = "重新生成";
   retry.disabled = item.status === "queued" || item.status === "running";
   retry.addEventListener("click", () => {
-    if (item.status === "error" && currentJobId) {
+    if (currentJobId && Number.isInteger(item.resultIndex)) {
+      regenerateResultItem(item);
+    } else if (item.status === "error" && currentJobId) {
       retryFailedJob(currentJobId);
     } else {
       generateImages();
@@ -502,10 +650,12 @@ async function generateImages() {
     clearTimeout(activeJobPoll);
     activeJobPoll = null;
   }
+  const mode = currentMode;
   currentJobId = "";
+  modeJobIds[mode] = "";
   localStorage.removeItem("activeGenerationJobId");
   const selected = visibleOutputs();
-  renderPendingCards(selected);
+  renderPendingCards(selected, mode);
   try {
     const clientRequestId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     const res = await fetch("/api/generate", {
@@ -517,11 +667,12 @@ async function generateImages() {
     if (!res.ok) throw new Error(data.error || "生成请求失败");
     if (data.job?.id) {
       currentJobId = data.job.id;
+      modeJobIds[mode] = data.job.id;
       localStorage.setItem("activeGenerationJobId", currentJobId);
-      renderJob(data.job);
-      pollJob(data.job.id);
+      renderJob(data.job, mode);
+      pollJob(data.job.id, mode);
     } else {
-      renderFinishedCards(data.results || []);
+      renderFinishedCards(data.results || [], mode);
     }
   } catch (error) {
     renderError(readableNetworkError(error, "提交任务失败"));
@@ -536,15 +687,18 @@ function clearResults(resetStatus = true) {
     activeJobPoll = null;
   }
   currentJobId = "";
+  modeJobIds[currentMode] = "";
+  saveResultState(currentMode, { type: "empty" });
   localStorage.removeItem("activeGenerationJobId");
   const grid = $("resultGrid");
   grid.className = "result-grid empty-state";
   grid.innerHTML = `<div><strong>等待生成</strong><span>完成后会在这里显示图片。</span></div>`;
-  setUnsavedGeneratedResults(false);
+  syncUnsavedGeneratedResults();
   hideResultsPanel();
   $("resultHint").textContent = "结果会保留在当前页面，可点击图片放大查看。";
   if (resetStatus) $("taskStatus").textContent = uploadedImages.length ? "图片已就绪" : "等待上传";
   setGenerateButtonState(false);
+  updateDownloadAllButton();
 }
 
 function setupUnsavedResultGuard() {
@@ -579,7 +733,7 @@ function setup() {
       currentQuality = button.dataset.quality === "pro" ? "pro" : "standard";
       syncLimitOptions();
       updateSummary();
-      clearResults(false);
+      renderResultState(resultStates[currentMode]);
     });
   });
   $("imageInput").addEventListener("change", (event) => {
@@ -590,7 +744,7 @@ function setup() {
   $("detailBatch").addEventListener("change", () => {
     syncLimitOptions();
     updateSummary();
-    clearResults(false);
+    renderResultState(resultStates[currentMode]);
   });
   $("modelProvider").addEventListener("change", (event) => selectProvider(event.target.value));
   $("stylePreset").addEventListener("change", updateSummary);
@@ -606,6 +760,7 @@ function setup() {
     if (event.key === "Escape" && !$("imageModal").hidden) closeImageModal();
   });
   $("generateBtn").addEventListener("click", generateImages);
+  $("downloadAllBtn").addEventListener("click", downloadAllResults);
   $("clearBtn").addEventListener("click", () => clearResults(true));
   setupDragUpload();
   setupUnsavedResultGuard();

@@ -259,12 +259,12 @@ function createPublicImageUrls(req, images) {
   });
 }
 
-function readBody(req) {
+function readBody(req, maxBytes = 35 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let body = "";
     req.on("data", (chunk) => {
       body += chunk;
-      if (body.length > 35 * 1024 * 1024) {
+      if (body.length > maxBytes) {
         reject(new Error("请求体过大，请减少上传图片数量或压缩图片。"));
         req.destroy();
       }
@@ -272,6 +272,104 @@ function readBody(req) {
     req.on("end", () => resolve(body));
     req.on("error", reject);
   });
+}
+
+const crcTable = Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit += 1) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+  return value >>> 0;
+});
+
+function crc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function dosDateTime(date = new Date()) {
+  const year = Math.max(1980, date.getFullYear());
+  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const day = ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+  return { time, day };
+}
+
+function sanitizeZipPath(value, fallback = "image.png") {
+  return String(value || fallback)
+    .trim()
+    .replace(/[<>:"\\|?*\u0000-\u001F]/g, "-")
+    .replace(/^\/+|\/+$/g, "")
+    .slice(0, 160) || fallback;
+}
+
+function zipBuffer(entries) {
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+  const { time, day } = dosDateTime();
+
+  for (const entry of entries) {
+    const name = Buffer.from(sanitizeZipPath(entry.name), "utf8");
+    const content = Buffer.isBuffer(entry.content) ? entry.content : Buffer.from(entry.content || "");
+    const crc = crc32(content);
+
+    const local = Buffer.alloc(30 + name.length);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt16LE(time, 10);
+    local.writeUInt16LE(day, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(content.length, 18);
+    local.writeUInt32LE(content.length, 22);
+    local.writeUInt16LE(name.length, 26);
+    name.copy(local, 30);
+    locals.push(local, content);
+
+    const central = Buffer.alloc(46 + name.length);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt16LE(0, 10);
+    central.writeUInt16LE(time, 12);
+    central.writeUInt16LE(day, 14);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(content.length, 20);
+    central.writeUInt32LE(content.length, 24);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(offset, 42);
+    name.copy(central, 46);
+    centrals.push(central);
+
+    offset += local.length + content.length;
+  }
+
+  const centralSize = centrals.reduce((sum, item) => sum + item.length, 0);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, ...centrals, end]);
+}
+
+async function imageBufferFromUrl(req, imageUrl) {
+  const value = String(imageUrl || "");
+  if (value.startsWith("data:")) return dataUrlToUpload(value).buffer;
+
+  const parsed = new URL(value, publicBaseUrl(req));
+  const requestHost = String(req.headers["x-forwarded-host"] || req.headers.host || "").split(":")[0];
+  if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("图片地址格式无效。");
+  if ((isPrivateHostname(parsed.hostname) || net.isIP(parsed.hostname)) && parsed.hostname !== requestHost) {
+    throw new Error("不允许下载内网图片地址。");
+  }
+
+  const response = await fetch(parsed);
+  if (!response.ok) throw new Error(`图片下载失败：${response.status}`);
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 function selectedOutputs(settings) {
@@ -525,6 +623,7 @@ async function handleGenerate(req, res) {
     if (DRY_RUN && provider === "ark") {
       job.status = "completed";
       job.results = items.map((item) => mockResult(item, images));
+      job.context = { images, settings, imageUrls: [] };
       job.finishedAt = Date.now();
       return sendJson(res, 202, { mode: "mock", job: jobSnapshot(job) });
     }
@@ -569,6 +668,64 @@ function handleRetryFailed(req, res) {
     job.finishedAt = Date.now();
   });
   return sendJson(res, 202, { job: jobSnapshot(job), retried: failedIndexes.length });
+}
+
+function handleRetryItem(req, res) {
+  const rawPath = req.url.split("?")[0];
+  const match = rawPath.match(/^\/api\/jobs\/([^/]+)\/retry-item\/(\d+)$/);
+  if (!match) return sendJson(res, 404, { error: "重生成图片接口不存在。" });
+  const job = jobs.get(decodeURIComponent(match[1]));
+  if (!job) return sendJson(res, 404, { error: "任务不存在或已过期。" });
+  if (["queued", "running"].includes(job.status)) return sendJson(res, 409, { error: "任务仍在生成中，请等待完成后再重新生成单张图片。" });
+  if (!job.context) return sendJson(res, 409, { error: "当前任务缺少原始上下文，无法重新生成单张图片。请重新上传后生成。" });
+
+  const index = Number(match[2]);
+  const item = job.results[index];
+  if (!Number.isInteger(index) || !item) return sendJson(res, 400, { error: "图片序号无效。" });
+
+  if (job.mock) {
+    job.results[index] = mockResult(item, job.context.images);
+    job.status = job.results.some((result) => result.status === "error") ? "partial_failed" : "completed";
+    job.finishedAt = Date.now();
+    return sendJson(res, 202, { job: jobSnapshot(job), retried: 1 });
+  }
+
+  job.results[index] = { type: item.type, kind: item.kind, title: item.title, index: item.index, status: "queued" };
+  runGenerationItems(job, job.context.images, job.context.settings, job.context.imageUrls, [index]).catch((error) => {
+    job.status = "partial_failed";
+    job.error = error.message;
+    job.finishedAt = Date.now();
+  });
+  return sendJson(res, 202, { job: jobSnapshot(job), retried: 1 });
+}
+
+async function handleDownloadZip(req, res) {
+  try {
+    const body = JSON.parse(await readBody(req, 160 * 1024 * 1024));
+    const files = Array.isArray(body.files) ? body.files.slice(0, 30) : [];
+    if (!files.length) return sendJson(res, 400, { error: "没有可下载的图片。" });
+
+    const folderName = sanitizeZipPath(body.folderName || body.zipName || "生成图片", "生成图片");
+    const entries = [];
+    for (const file of files) {
+      const content = await imageBufferFromUrl(req, file.url);
+      const fileName = sanitizeZipPath(file.name || "image.png", "image.png");
+      entries.push({ name: `${folderName}/${fileName}`, content });
+    }
+
+    const zipName = sanitizeZipPath(body.zipName || folderName, "生成图片");
+    const zip = zipBuffer(entries);
+    const encodedName = encodeURIComponent(`${zipName}.zip`);
+    res.writeHead(200, {
+      "Content-Type": "application/zip",
+      "Content-Length": zip.length,
+      "Content-Disposition": `attachment; filename=\"download.zip\"; filename*=UTF-8''${encodedName}`,
+      "Cache-Control": "no-store",
+    });
+    res.end(zip);
+  } catch (error) {
+    sendJson(res, 500, { error: error.message });
+  }
 }
 
 function serveUpload(req, res) {
@@ -619,7 +776,9 @@ function serveStatic(req, res) {
 const server = http.createServer((req, res) => {
   if (req.url === "/api/health") return sendJson(res, 200, { hasApiKey: Boolean(ARK_API_KEY), dryRun: DRY_RUN, model: ARK_MODEL, models: allowedModels });
   if (req.url === "/api/generate" && req.method === "POST") return handleGenerate(req, res);
+  if (req.url === "/api/download-zip" && req.method === "POST") return handleDownloadZip(req, res);
   if (req.url.startsWith("/api/jobs/") && req.method === "GET") return handleJob(req, res);
+  if (req.url.startsWith("/api/jobs/") && req.url.includes("/retry-item/") && req.method === "POST") return handleRetryItem(req, res);
   if (req.url.startsWith("/api/jobs/") && req.url.includes("/retry-failed") && req.method === "POST") return handleRetryFailed(req, res);
   if (req.url.startsWith("/uploads/")) return serveUpload(req, res);
   serveStatic(req, res);
