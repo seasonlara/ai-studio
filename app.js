@@ -122,6 +122,16 @@ function selectProvider(provider) {
   updateSummary();
 }
 
+async function readJsonResponse(response, fallbackMessage) {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    const preview = text.replace(/\s+/g, " ").slice(0, 120);
+    throw new Error(`${fallbackMessage}：服务返回了非 JSON 内容（HTTP ${response.status}）。${preview}`);
+  }
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -259,7 +269,7 @@ async function pollJob(jobId) {
   if (activeJobPoll) clearTimeout(activeJobPoll);
   try {
     const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
-    const data = await res.json();
+    const data = await readJsonResponse(res, "查询任务失败");
     if (!res.ok) throw new Error(data.error || "查询任务失败");
     const job = data.job;
     renderJob(job);
@@ -387,7 +397,7 @@ async function generateImages() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload()),
     });
-    const data = await res.json();
+    const data = await readJsonResponse(res, "提交任务失败");
     if (!res.ok) throw new Error(data.error || "生成请求失败");
     if (data.job?.id) {
       renderJob(data.job);
