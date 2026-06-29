@@ -18,17 +18,14 @@ const modes = {
     includeMain: false,
     includeDetail: true,
     subtext: "生成商品详情页说明图",
-    limitOptions: [
-      ["1", "先生成 1 张"],
-      ["4", "生成 4 张"],
-      ["9", "生成全部"],
-    ],
+    limitOptions: [["6", "生成 6 张详情页"]],
   },
 };
 
 const outputs = {
   main: ["全方位主視覺", "防護支撐圖", "折疊多角度圖", "升級比較圖", "商品規格表", "細節特寫圖", "包裝內容圖", "使用情境圖", "內部結構圖"],
-  detail: ["核心卖点总览", "安装/使用流程", "升级比较图", "多角度展示", "材质结构图", "细节特写图", "使用情境图", "包装内容图", "规格参数表"],
+  detailFront: ["功能總覽", "痛點共鳴", "解決方案", "功能矩陣", "核心結構", "規格概覽"],
+  detailBack: ["便攜賣點", "折疊展示", "舒適體驗", "傳統痛點", "受力固定", "規格補充"],
 };
 
 let uploadedImages = [];
@@ -54,8 +51,10 @@ function selectedOutputs() {
     selected.push(...outputs.main.map((title, index) => ({ type: "主图", kind: "main", title, index: index + 1 })));
   }
   if (modes[currentMode].includeDetail || dealEnabled()) {
-    const detailList = dealEnabled() ? outputs.detail.slice(0, 6) : outputs.detail;
-    selected.push(...detailList.map((title, index) => ({ type: "详情页", kind: "detail", title, index: index + 1 })));
+    const batch = currentMode === "detail" && $("detailBatch")?.value === "back" ? "back" : "front";
+    const detailList = batch === "back" ? outputs.detailBack : outputs.detailFront;
+    const offset = batch === "back" ? 6 : 0;
+    selected.push(...detailList.map((title, index) => ({ type: "详情页", kind: "detail", title, index: offset + index + 1 })));
   }
   return selected;
 }
@@ -114,6 +113,7 @@ function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll(".content-option").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
   if (mode === "detail") $("includeDetailDeal").checked = false;
+  $("detailBatchField").hidden = mode !== "detail";
   syncLimitOptions();
   updateSummary();
   clearResults(false);
@@ -213,6 +213,7 @@ function payload() {
       generationQuality: currentQuality,
       includeMain: modes[currentMode].includeMain,
       includeDetail: effectiveIncludeDetail,
+      detailBatch: $("detailBatch")?.value || "front",
       outputLanguage: $("outputLanguage").value,
       productName: $("productName").value.trim(),
       coreBenefit: $("coreBenefit").value.trim(),
@@ -509,6 +510,11 @@ function setup() {
     event.target.value = "";
   });
   $("limit").addEventListener("change", updateSummary);
+  $("detailBatch").addEventListener("change", () => {
+    syncLimitOptions();
+    updateSummary();
+    clearResults(false);
+  });
   $("modelProvider").addEventListener("change", (event) => selectProvider(event.target.value));
   $("stylePreset").addEventListener("change", updateSummary);
   $("includeDetailDeal").addEventListener("change", () => {

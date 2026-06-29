@@ -88,7 +88,81 @@ const mainBlueprints = [
   },
 ];
 const mainTitles = mainBlueprints.map((item) => item.title);
-const detailTitles = ["核心卖点总览", "安装/使用流程", "升级比较图", "多角度展示", "材质结构图", "细节特写图", "使用情境图", "包装内容图", "规格参数表"];
+const detailBlueprints = [
+  {
+    title: "功能總覽",
+    purpose: "详情页开场屏，先给买家一个清楚的商品定位和核心利益。",
+    copy: "主标题使用商品品类与核心承诺，例如「守護寶貝安全出行」「便攜式兒童安全座椅」；底部放 3 个图标卖点，例如「輕量設計」「多點固定」「便利安裝」。",
+    scene: "商品放在真实使用场景或浅蓝白渐层背景中，顶部有英文小标题 Feature Overview，主标题大字居中，底部用圆角白色栏承载 3 个图标卖点。",
+  },
+  {
+    title: "痛點共鳴",
+    purpose: "提出买家正在遇到的问题，让后续解决方案更有说服力。",
+    copy: "用一句问题式大标题，例如「傳統座椅太笨重？」「安裝費時又佔空間？」；副标题说明痛点，如「佔空間且安裝繁瑣」。不得夸大危险或制造恐惧。",
+    scene: "灰阶或低饱和车内/居家痛点场景，人物可表现困扰；画面不突出本商品，重点是对比前的困扰感。顶部有英文小标题 Pain Point。",
+  },
+  {
+    title: "解決方案",
+    purpose: "承接痛点，展示本商品如何解决便携、安装、节省空间或使用便利的问题。",
+    copy: "主标题使用解决方案句式，例如「一拎即走 釋放空間」「輕巧便攜 隨裝隨用」；副标题一句话说明适合家庭、车用或外出。",
+    scene: "真实生活场景，商品由人物手提、放入车内或准备安装；产品必须清晰完整，文字置顶，整体明亮温暖。",
+  },
+  {
+    title: "功能矩陣",
+    purpose: "用图标矩阵快速总结 4 个核心功能点。",
+    copy: "顶部英文小标题 Function Matrix，主标题如「全方位防護升級」；底部 4 个圆形线性图标，每个图标下放一个短卖点，例如「加寬側翼」「親膚面料」「穩固底座」「相容多車型」。卖点必须来自图片或补充信息，无法确认时使用通用表达。",
+    scene: "浅蓝白科技感详情页，产品棚拍居中，底部整齐排列 4 个图标，留白充足，适合手机浏览。",
+  },
+  {
+    title: "核心結構",
+    purpose: "让买家理解产品关键结构和受力/固定/舒适部位。",
+    copy: "顶部英文小标题 Core Structure；主标题如「科學受力結構」；用 3 个引线标签指向可见结构，例如「加厚防護靠背」「固定卡扣」「高彈透氣墊」。不得生成图中没有的结构。",
+    scene: "产品正面大图，占画面 70%；右侧或周围用圆角标签和细线标注结构点，背景简洁浅蓝。",
+  },
+  {
+    title: "規格概覽",
+    purpose: "整理前半段的规格信息，降低买家继续浏览成本。",
+    copy: "标题「產品規格一覽」；用白色圆角信息卡列 3-4 行规格，如「適用情境」「材質」「固定方式」「內容物」。没有明确资料时写「以賣場資訊為準」，不要编造年龄、重量、尺寸、材质。",
+    scene: "产品在左侧或背景淡化，右侧白色圆角规格卡；浅蓝白背景，黑色大字，布局清楚。",
+  },
+  {
+    title: "便攜賣點",
+    purpose: "后半段重新强化便携与出行场景，适合作为第二批开场。",
+    copy: "主标题如「便攜兒童安全座椅」「安全守護出行」；左侧 3 个图标卖点，例如「多點防護」「透氣舒適」「便攜免拆」。只使用可见或可合理确认的卖点。",
+    scene: "车内场景中展示商品，左侧竖排图标和卖点，产品放右侧或中间，背景浅蓝白，文字黑色粗体。",
+  },
+  {
+    title: "折疊展示",
+    purpose: "展示折叠、展开、收纳或不同形态，帮助买家理解空间占用。",
+    copy: "主标题如「一秒折疊不佔空間」「輕巧便攜隨裝隨用」；如果产品不可折叠，改为「多角度展示」「正反面一目了然」。",
+    scene: "左右并列展示折叠态与展开态，中间用箭头连接，顶部大标题，画面干净。不得把不可折叠商品强行生成折叠状态。",
+  },
+  {
+    title: "舒適體驗",
+    purpose: "解释舒适、透气、亲肤、可调节等体验价值。",
+    copy: "主标题如「全方位舒適體驗」；搭配 4 个环形图标卖点，例如「加厚防撞」「透氣網眼」「可調織帶」「親膚面料」。卖点必须有图片证据或用户补充。",
+    scene: "产品居中，四周环绕图标与短标签，浅蓝白背景，版面整洁，避免过多文字。",
+  },
+  {
+    title: "傳統痛點",
+    purpose: "通过负面对比再次强化轻便、省空间、易安装的购买理由。",
+    copy: "大标题用问题句，例如「傳統座椅太笨重？」；副标题如「佔據空間拆卸麻煩」。这是痛点对比页，不要把问题归到本商品身上。",
+    scene: "传统替代品或车内拥挤场景作为背景，画面可略暗或虚化，中心有红色叉号。不要展示本商品失败或危险使用。",
+  },
+  {
+    title: "受力固定",
+    purpose: "说明固定点、受力点、织带和卡扣位置，增强稳定感。",
+    copy: "主标题如「五點式安全防護」「穩固受力不鬆脫」；用引线标注 4 个可见位置，例如「肩部受力點」「襠部受力點」「腰部受力點」「調節卡扣」。不得新增不同形状扣具。",
+    scene: "产品局部大图，重点放肩带、腰带、裆部、侧扣；用橙色小圆点和细线标注，文字黑色粗体。",
+  },
+  {
+    title: "規格補充",
+    purpose: "作为后 6 屏收尾，补充买家下单前需要确认的信息。",
+    copy: "标题「產品規格一覽」；信息行包括「適用情境」「材質」「重量」「尺寸」或「內容物」。没有用户提供的数字时必须写「以賣場資訊為準」，不得自行生成重量、尺寸、年龄。",
+    scene: "大号表格或信息卡，产品半透明作背景，橙色胶囊标签承载规格值，浅蓝白背景，文字清晰。",
+  },
+];
+const detailTitles = detailBlueprints.map((item) => item.title);
 
 const evidenceRules = [
   "文案证据规则：每一个卖点标签都必须能从上传图片的可见结构、用户补充信息或商品常识中得到支持；如果不能确认，必须改成更保守的通用词，例如「細節特寫」「清潔便利」「使用方便」。",
@@ -182,7 +256,10 @@ function readBody(req) {
 function selectedOutputs(settings) {
   const items = [];
   if (settings.includeMain) items.push(...mainTitles.map((title, index) => ({ type: "主图", kind: "main", title, index: index + 1 })));
-  if (settings.includeDetail) items.push(...detailTitles.map((title, index) => ({ type: "详情页", kind: "detail", title, index: index + 1 })));
+  if (settings.includeDetail) {
+    const start = settings.detailBatch === "back" ? 6 : 0;
+    items.push(...detailTitles.slice(start, start + 6).map((title, index) => ({ type: "详情页", kind: "detail", title, index: start + index + 1 })));
+  }
   return items.length ? items : mainTitles.map((title, index) => ({ type: "主图", kind: "main", title, index: index + 1 }));
 }
 
@@ -195,11 +272,21 @@ function promptFor(item, settings) {
   const style = settings.stylePreset === "clean" ? "干净白底、橙色点缀、移动端可读" : settings.stylePreset === "dark" ? "黑橙科技质感、强对比、适合车用品" : "橙色爆款电商风、粗体繁体中文、白描边、圆角信息块";
   const goal = settings.goal === "click" ? "优先提升列表点击率，强化第一眼吸引力和核心卖点识别。" : settings.goal === "conversion" ? "优先提升详情页转化，强化可信说明、使用场景和购买理由。" : "兼顾点击率与转化率，画面清楚、卖点明确、信息不过载。";
   const mainBlueprint = item.kind === "main" ? mainBlueprints[item.index - 1] || mainBlueprints[0] : null;
+  const detailBlueprint = item.kind === "detail" ? detailBlueprints[item.index - 1] || detailBlueprints[0] : null;
   const mainStrategy = mainBlueprint
     ? [
         `本张主图销售定位：${mainBlueprint.purpose}`,
         `广告文案策略：${mainBlueprint.copy}`,
         `画面布局策略：${mainBlueprint.scene}`,
+      ].join("\n")
+    : "";
+  const detailStrategy = detailBlueprint
+    ? [
+        `本张详情页在 12 屏链路中的位置：第 ${item.index} 屏，主题「${detailBlueprint.title}」。`,
+        `详情页销售定位：${detailBlueprint.purpose}`,
+        `详情页文案策略：${detailBlueprint.copy}`,
+        `详情页画面布局策略：${detailBlueprint.scene}`,
+        "整套详情页逻辑：前 6 屏依次完成开场卖点、痛点共鸣、解决方案、功能矩阵、核心结构、规格概览；后 6 屏依次完成便携卖点、折叠/形态展示、舒适体验、传统痛点、受力固定、规格补充。",
       ].join("\n")
     : "";
 
@@ -212,6 +299,7 @@ function promptFor(item, settings) {
     `用户约束：${constraints}。`,
     `出图目标：${goal}`,
     mainStrategy,
+    detailStrategy,
     `准确性与细节约束：\n${evidenceRules}`,
     `整体风格：${style}。`,
     "必须保留产品真实外观、颜色、材质纹理、结构比例、可见 Logo/标签和口袋/扣具/边线等关键细节。",
