@@ -41,6 +41,10 @@ function isLocalPreviewHost() {
   return ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(window.location.hostname);
 }
 
+function isFilePreview() {
+  return window.location.protocol === "file:";
+}
+
 function dealEnabled() {
   return Boolean($("includeDetailDeal")?.checked && currentMode === "main");
 }
@@ -424,6 +428,10 @@ function createImageCard(item, status) {
 async function generateImages() {
   updateSummary();
   if (isSubmitting) return;
+  if (isFilePreview()) {
+    renderError("当前是直接打开的 HTML 文件，无法连接生成服务。请使用本地测试地址 http://127.0.0.1:8792/ 或公网网站访问后再生成。");
+    return;
+  }
   if (!uploadedImages.length) {
     renderError("请先上传至少 1 张商品图片。");
     return;
