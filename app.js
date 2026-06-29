@@ -37,6 +37,7 @@ const modeJobIds = { main: currentJobId, detail: "" };
 const resultStates = { main: { type: "empty" }, detail: { type: "empty" } };
 let isSubmitting = false;
 let hasUnsavedGeneratedResults = false;
+let currentModalItem = null;
 const maxUploadImages = 8;
 const $ = (id) => document.getElementById(id);
 
@@ -452,10 +453,11 @@ function renderError(message) {
 function openImageModal(item) {
   if (!item.url || item.error) return;
   const displayTitle = imageDisplayTitle(item);
+  currentModalItem = item;
   $("modalImage").src = item.url;
   $("modalImage").alt = displayTitle;
   $("modalTitle").textContent = displayTitle;
-  $("modalDownload").href = item.url;
+  $("modalDownload").href = "#";
   $("modalDownload").download = imageDownloadName(item);
   $("imageModal").hidden = false;
   document.body.classList.add("modal-open");
@@ -463,6 +465,7 @@ function openImageModal(item) {
 
 function closeImageModal() {
   $("imageModal").hidden = true;
+  currentModalItem = null;
   $("modalImage").removeAttribute("src");
   document.body.classList.remove("modal-open");
 }
@@ -546,6 +549,43 @@ async function downloadAllResults() {
   }
 }
 
+async function downloadSingleResult(item, trigger) {
+  if (!item.url || item.error || isSubmitting) return;
+  const previousText = trigger?.textContent;
+  if (trigger) {
+    trigger.classList.add("disabled");
+    trigger.textContent = "下载中...";
+  }
+  try {
+    const fileName = imageDownloadName(item);
+    const response = await fetch("/api/download-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: fileName, url: item.url }),
+    });
+    if (!response.ok) {
+      const data = await readJsonResponse(response, "下载失败");
+      throw new Error(data.error || "下载失败");
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    alert(readableNetworkError(error, "下载失败"));
+  } finally {
+    if (trigger) {
+      trigger.classList.toggle("disabled", !item.url || item.error);
+      trigger.textContent = previousText || "下载";
+    }
+  }
+}
+
 function createImageCard(item, status) {
   const card = document.createElement("article");
   card.className = "image-card";
@@ -599,9 +639,14 @@ function createImageCard(item, status) {
 
   const download = document.createElement("a");
   download.textContent = "下载";
-  download.href = item.url || "#";
+  download.href = "#";
   download.download = imageDownloadName(item);
   if (!item.url || item.error) download.classList.add("disabled");
+  download.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (!item.url || item.error) return;
+    downloadSingleResult(item, download);
+  });
 
   const retry = document.createElement("button");
   retry.type = "button";
@@ -753,6 +798,10 @@ function setup() {
     updateSummary();
   });
   $("modalClose").addEventListener("click", closeImageModal);
+  $("modalDownload").addEventListener("click", (event) => {
+    event.preventDefault();
+    if (currentModalItem) downloadSingleResult(currentModalItem, $("modalDownload"));
+  });
   $("imageModal").addEventListener("click", (event) => {
     if (event.target.dataset.closeModal !== undefined) closeImageModal();
   });

@@ -730,6 +730,25 @@ async function handleDownloadZip(req, res) {
   }
 }
 
+async function handleDownloadImage(req, res) {
+  try {
+    const body = JSON.parse(await readBody(req, 40 * 1024 * 1024));
+    const content = await imageBufferFromUrl(req, body.url);
+    const fileName = sanitizeZipPath(body.name || "image.png", "image.png");
+    const ext = path.extname(fileName).toLowerCase() || ".png";
+    const encodedName = encodeURIComponent(fileName);
+    res.writeHead(200, {
+      "Content-Type": mime[ext] || "application/octet-stream",
+      "Content-Length": content.length,
+      "Content-Disposition": `attachment; filename=\"image${ext}\"; filename*=UTF-8''${encodedName}`,
+      "Cache-Control": "no-store",
+    });
+    res.end(content);
+  } catch (error) {
+    sendJson(res, 500, { error: error.message });
+  }
+}
+
 function serveUpload(req, res) {
   const id = decodeURIComponent(req.url.split("?")[0].replace("/uploads/", ""));
   const upload = uploadStore.get(id);
@@ -779,6 +798,7 @@ const server = http.createServer((req, res) => {
   if (req.url === "/api/health") return sendJson(res, 200, { hasApiKey: Boolean(ARK_API_KEY), dryRun: DRY_RUN, model: ARK_MODEL, models: allowedModels });
   if (req.url === "/api/generate" && req.method === "POST") return handleGenerate(req, res);
   if (req.url === "/api/download-zip" && req.method === "POST") return handleDownloadZip(req, res);
+  if (req.url === "/api/download-image" && req.method === "POST") return handleDownloadImage(req, res);
   if (req.url.startsWith("/api/jobs/") && req.method === "GET") return handleJob(req, res);
   if (req.url.startsWith("/api/jobs/") && req.url.includes("/retry-item/") && req.method === "POST") return handleRetryItem(req, res);
   if (req.url.startsWith("/api/jobs/") && req.url.includes("/retry-failed") && req.method === "POST") return handleRetryFailed(req, res);
