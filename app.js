@@ -37,6 +37,10 @@ let currentQuality = "standard";
 const maxUploadImages = 8;
 const $ = (id) => document.getElementById(id);
 
+function isLocalPreviewHost() {
+  return ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(window.location.hostname);
+}
+
 function dealEnabled() {
   return Boolean($("includeDetailDeal")?.checked && currentMode === "main");
 }
@@ -96,7 +100,11 @@ function updateSummary() {
   const provider = $("modelProvider").value;
   $("summaryScope").textContent = `剩余积分`;
   $("taskCount").textContent = `一次生成即得 ${count} 张${currentMode === "main" ? "专业主图" : "精选图"}`;
-  $("generateSubtext").textContent = uploadedImages.length ? `消耗 ${cost} 积分` : `${providerLabels[provider]} · 上传图片后可生成`;
+  if (uploadedImages.length && provider !== "ark" && isLocalPreviewHost()) {
+    $("generateSubtext").textContent = `${providerLabels[provider]} · 本地测试需公网图片地址`;
+  } else {
+    $("generateSubtext").textContent = uploadedImages.length ? `消耗 ${cost} 积分` : `${providerLabels[provider]} · 上传图片后可生成`;
+  }
 }
 
 function setMode(mode) {

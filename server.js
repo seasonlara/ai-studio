@@ -2,6 +2,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const net = require("net");
 
 const PORT = Number(process.env.PORT || 8790);
 const ARK_BASE_URL = process.env.ARK_BASE_URL || "https://ark.cn-beijing.volces.com/api/v3";
@@ -98,6 +99,29 @@ function publicBaseUrl(req) {
   const proto = req.headers["x-forwarded-proto"] || "http";
   const host = req.headers["x-forwarded-host"] || req.headers.host;
   return `${proto}://${host}`;
+}
+
+function isPrivateHostname(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  if (!host || host === "localhost" || host.endsWith(".localhost")) return true;
+  if (host === "::1") return true;
+  if (net.isIP(host) === 4) {
+    const parts = host.split(".").map(Number);
+    return parts[0] === 10 || parts[0] === 127 || parts[0] === 0 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168);
+  }
+  return false;
+}
+
+function assertRemoteImageUrls(imageUrls, provider) {
+  for (const imageUrl of imageUrls) {
+    const parsed = new URL(imageUrl);
+    if (isPrivateHostname(parsed.hostname) || net.isIP(parsed.hostname)) {
+      const label = provider === "banana-pro" ? "PRO 增强 / Banana Pro" : "GPT Image 2";
+      throw new Error(
+        `${label} 需要公网可访问的图片地址。当前是本地测试地址（${parsed.host}），外部模型无法下载图片。请先部署到 Render 公网域名后使用，或设置 PUBLIC_BASE_URL 为可访问的 HTTPS 域名；本地测试请先使用 seedream5.0。`,
+      );
+    }
+  }
 }
 
 function dataUrlToUpload(dataUrl) {
@@ -250,6 +274,7 @@ async function waitForApizTask(taskId) {
 }
 
 async function callApizImage(prompt, imageUrls, provider) {
+  assertRemoteImageUrls(imageUrls, provider);
   const isGptImage2 = provider === "gpt-image-2";
   const model = isGptImage2 ? (imageUrls.length ? "openai/gpt-image-2/edit" : "openai/gpt-image-2") : "kapon/gemini-3-pro-image-preview";
   const params = isGptImage2
