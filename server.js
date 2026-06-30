@@ -646,6 +646,7 @@ function promptFor(item, settings) {
   const goal = settings.goal === "click" ? "优先提升列表点击率，强化第一眼吸引力和核心卖点识别。" : settings.goal === "conversion" ? "优先提升详情页转化，强化可信说明、使用场景和购买理由。" : "兼顾点击率与转化率，画面清楚、卖点明确、信息不过载。";
   const mainBlueprint = item.kind === "main" ? mainBlueprints[item.index - 1] || mainBlueprints[0] : null;
   const detailBlueprint = item.kind === "detail" ? detailBlueprints[item.index - 1] || detailBlueprints[0] : null;
+  const aspectRatio = safeAspectRatio(settings.aspectRatio);
   const mainStrategy = mainBlueprint
     ? [
         `本张主图销售定位：${mainBlueprint.purpose}`,
@@ -665,7 +666,7 @@ function promptFor(item, settings) {
     : "";
 
   return [
-    `你是专业台湾虾皮电商设计师和商品广告策划。请基于用户上传的产品图，直接生成一张 1:1 ${role}。`,
+    `你是专业台湾虾皮电商设计师和商品广告策划。请基于用户上传的产品图，直接生成一张 ${aspectRatio} ${role}。`,
     `图片编号：${item.type} ${String(item.index).padStart(2, "0")}，主题：${item.title}。`,
     "开始创作前，请先在内部完成商品理解：识别产品品类、可见结构、颜色材质、可能使用场景、目标受众、购买动机、可见卖点与不可确认信息；这些分析不要输出成大段文字，只用于画面和文案决策。",
     `商品名称：${name}。产品功能：${productFunction}。核心卖点：${benefit}。`,
@@ -673,6 +674,7 @@ function promptFor(item, settings) {
     `用户约束：${constraints}。`,
     `品类守门规则：\n${categoryGuard(settings)}`,
     `出图目标：${goal}`,
+    `画幅比例：${aspectRatio}。请根据该比例安排产品、标题和卖点标签，避免文字贴边或被裁切。`,
     generalCreativeStrategy(item, settings),
     mainStrategy,
     sameCategoryStrategy,
@@ -694,11 +696,26 @@ function modelFromSettings(settings) {
   return allowedModels[settings.model] ? settings.model : ARK_MODEL;
 }
 
-async function callArkImage(prompt, images, model) {
+function safeAspectRatio(value) {
+  return ["1:1", "3:4", "4:3", "16:9", "21:9", "9:16"].includes(value) ? value : "1:1";
+}
+
+function arkSizeFromAspectRatio(value) {
+  return {
+    "1:1": "1920x1920",
+    "3:4": "1440x1920",
+    "4:3": "1920x1440",
+    "16:9": "1920x1080",
+    "21:9": "1920x823",
+    "9:16": "1080x1920",
+  }[safeAspectRatio(value)];
+}
+
+async function callArkImage(prompt, images, model, settings = {}) {
   const body = {
     model,
     prompt,
-    size: "1920x1920",
+    size: arkSizeFromAspectRatio(settings.aspectRatio),
     response_format: "b64_json",
     watermark: false,
     add_watermark: false,
@@ -765,15 +782,16 @@ async function waitForApizTask(taskId) {
   throw new Error("图片生成等待超时。模型可能仍在排队或生成中，请稍后重新生成该单张图片。");
 }
 
-async function callApizImage(prompt, imageUrls, provider) {
+async function callApizImage(prompt, imageUrls, provider, settings = {}) {
   assertRemoteImageUrls(imageUrls, provider);
   const isGptImage2 = provider === "gpt-image-2";
+  const aspectRatio = safeAspectRatio(settings.aspectRatio);
   const model = isGptImage2 ? (imageUrls.length ? "openai/gpt-image-2/edit" : "openai/gpt-image-2") : "kapon/gemini-3-pro-image-preview";
   const params = isGptImage2
     ? {
         prompt,
         image_urls: imageUrls,
-        image_size: "1:1",
+        image_size: aspectRatio,
         resolution: "1K",
         quality: "low",
         num_images: 1,
@@ -785,7 +803,7 @@ async function callApizImage(prompt, imageUrls, provider) {
         prompt,
         image_urls: imageUrls,
         size: "1K",
-        aspect_ratio: "1:1",
+        aspect_ratio: aspectRatio,
         watermark: false,
         add_watermark: false,
       };
@@ -796,9 +814,9 @@ async function callApizImage(prompt, imageUrls, provider) {
   return waitForApizTask(taskId);
 }
 
-async function callSelectedImageModel(prompt, images, model, provider, imageUrls) {
-  if (provider === "gpt-image-2" || provider === "banana-pro") return callApizImage(prompt, imageUrls, provider);
-  return callArkImage(prompt, images, model);
+async function callSelectedImageModel(prompt, images, model, provider, imageUrls, settings = {}) {
+  if (provider === "gpt-image-2" || provider === "banana-pro") return callApizImage(prompt, imageUrls, provider, settings);
+  return callArkImage(prompt, images, model, settings);
 }
 
 async function runWithConcurrency(items, limit, worker) {
@@ -828,7 +846,7 @@ async function runGenerationItems(job, images, settings, imageUrls, indexes) {
     job.results[index] = { ...item, status: "running" };
     try {
       const prompt = promptFor(item, settings);
-      const output = await callSelectedImageModel(prompt, images, job.model, job.provider, imageUrls);
+      const output = await callSelectedImageModel(prompt, images, job.model, job.provider, imageUrls, job.settings);
       job.results[index] = { ...item, status: "done", url: output.url, prompt, externalTaskId: output.externalTaskId || "" };
     } catch (error) {
       job.results[index] = { ...item, status: "error", error: error.message };

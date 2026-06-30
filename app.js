@@ -39,6 +39,8 @@ let isSubmitting = false;
 let hasUnsavedGeneratedResults = false;
 let currentModalItem = null;
 const maxUploadImages = 8;
+const proCountValues = new Set(["1", "3", "5", "9"]);
+const aspectRatioValues = new Set(["1:1", "3:4", "4:3", "16:9", "21:9", "9:16"]);
 const $ = (id) => document.getElementById(id);
 
 function isLocalPreviewHost() {
@@ -50,7 +52,7 @@ function isFilePreview() {
 }
 
 function dealEnabled() {
-  return Boolean($("includeDetailDeal")?.checked && currentMode === "main");
+  return Boolean($("includeDetailDeal")?.checked && currentMode === "main" && currentQuality !== "pro");
 }
 
 function selectedOutputs() {
@@ -71,12 +73,38 @@ function visibleOutputs() {
   return selectedOutputs().slice(0, Number($("limit").value || 1));
 }
 
+function selectedProCount() {
+  const active = document.querySelector(".pro-count-button.active");
+  const value = active?.dataset.proCount || "9";
+  return proCountValues.has(value) ? value : "9";
+}
+
+function selectedAspectRatio() {
+  const value = $("aspectRatio")?.value || "1:1";
+  return aspectRatioValues.has(value) ? value : "1:1";
+}
+
+function syncProPanel() {
+  const panel = $("proControlPanel");
+  if (!panel) return;
+  panel.hidden = !(currentQuality === "pro" && currentMode === "main");
+}
+
+function syncDealStrip() {
+  const strip = $("detailDealStrip");
+  const checkbox = $("includeDetailDeal");
+  if (!strip || !checkbox) return;
+  strip.hidden = currentMode === "detail" || currentQuality === "pro";
+  if (strip.hidden) checkbox.checked = false;
+}
+
 function syncLimitOptions() {
   const select = $("limit");
   const previous = select.value;
   let options = modes[currentMode].limitOptions;
   if (currentMode === "main") {
-    options = currentQuality === "pro" ? [["1", "PRO 生成 1 张主图"]] : [["9", "标准生成 9 张主图"]];
+    const proCount = selectedProCount();
+    options = currentQuality === "pro" ? [[proCount, `PRO 生成 ${proCount} 张主图`]] : [["9", "标准生成 9 张主图"]];
     if (dealEnabled()) {
       options = currentQuality === "pro" ? [["7", "1 张主图 + 前六屏详情"]] : [["15", "9 张主图 + 前六屏详情"]];
     }
@@ -98,7 +126,7 @@ function syncLimitOptions() {
 
 function taskCost(count) {
   if (dealEnabled()) return currentQuality === "pro" ? 199 : 299;
-  if (currentQuality === "pro") return 100;
+  if (currentQuality === "pro") return currentMode === "main" && count === 9 ? 500 : count * 100;
   if (currentMode === "main") return 199;
   if ($("modelProvider").value !== "ark") return count * 100;
   return count * 15;
@@ -122,7 +150,8 @@ function setMode(mode) {
   document.querySelectorAll(".content-option").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
   if (mode === "detail") $("includeDetailDeal").checked = false;
   $("detailBatchField").hidden = mode !== "detail";
-  $("detailDealStrip").hidden = mode === "detail";
+  syncDealStrip();
+  syncProPanel();
   syncLimitOptions();
   updateSummary();
   syncCurrentJobId();
@@ -235,6 +264,7 @@ function payload() {
       includeMain: modes[currentMode].includeMain,
       includeDetail: effectiveIncludeDetail,
       detailBatch: $("detailBatch")?.value || "front",
+      aspectRatio: selectedAspectRatio(),
       outputLanguage: $("outputLanguage").value,
       productName: $("productName").value.trim(),
       productFunction: $("productFunction").value.trim(),
@@ -771,16 +801,34 @@ function setupDragUpload() {
 }
 
 function setup() {
-  $("detailDealStrip").hidden = currentMode === "detail";
+  syncDealStrip();
   document.querySelectorAll(".content-option").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
   document.querySelectorAll(".mode-card").forEach((button) => {
     button.addEventListener("click", () => {
       document.querySelectorAll(".mode-card").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
       currentQuality = button.dataset.quality === "pro" ? "pro" : "standard";
+      syncDealStrip();
+      syncProPanel();
       syncLimitOptions();
       updateSummary();
       renderResultState(resultStates[currentMode]);
+    });
+  });
+  document.querySelectorAll(".pro-count-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".pro-count-button").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      syncLimitOptions();
+      updateSummary();
+    });
+  });
+  document.querySelectorAll(".aspect-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".aspect-button").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      $("aspectRatio").value = aspectRatioValues.has(button.dataset.aspect) ? button.dataset.aspect : "1:1";
+      updateSummary();
     });
   });
   $("imageInput").addEventListener("change", (event) => {
@@ -815,6 +863,7 @@ function setup() {
   $("clearBtn").addEventListener("click", () => clearResults(true));
   setupDragUpload();
   setupUnsavedResultGuard();
+  syncProPanel();
   syncLimitOptions();
   updateSummary();
   if (currentJobId) {
