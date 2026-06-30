@@ -534,6 +534,10 @@ button:disabled {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.assist-form {
+  margin-top: 14px;
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -548,6 +552,16 @@ button:disabled {
   color: #cbd5e1;
   font-size: 13px;
   font-weight: 750;
+}
+
+.assist-field span {
+  color: #facc15;
+}
+
+.assist-field em {
+  color: #fef3c7;
+  font-style: normal;
+  font-weight: 600;
 }
 
 .field input,
@@ -572,6 +586,11 @@ button:disabled {
 .field input::placeholder,
 .field textarea::placeholder {
   color: #64748b;
+}
+
+.field small {
+  color: var(--muted-2);
+  font-size: 12px;
 }
 
 .upload-row {

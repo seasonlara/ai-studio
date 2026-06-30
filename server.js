@@ -36,9 +36,9 @@ const mime = {
 const mainBlueprints = [
   {
     title: "全方位主視覺",
-    purpose: "列表第一眼搶點擊，讓買家立刻理解商品品類、核心用途與主要購買理由。",
-    copy: "主標使用商品品類或核心用途，例如「兒童安全座椅」「車用收納盒」；搭配 2-3 個可見賣點短標籤，例如「穩固支撐」「加厚設計」「清潔便利」。只有商品明確是收納盒、收納袋、置物架時才可使用「收納」相關文案；座椅、坐墊、保護墊類商品優先使用「可拆清洗」「透氣舒適」「加厚支撐」。",
-    scene: "產品置中放大，暖橙奶油色高級棚拍背景，可加入一個局部放大圓框與箭頭；主標置頂，賣點標籤分布在四周，保留手機端可讀留白。",
+    purpose: "这是整套图最重要的首图，必须像高转化电商广告封面：第一眼有真实使用场景、商品主体突出、核心卖点深刻明确，让买家立刻知道这是什么、解决什么问题、为什么值得点进来。",
+    copy: "主标题必须是「商品品类 + 最强核心卖点」或「使用场景 + 核心价值」的组合，例如「車用固體香膏 強效除臭」「兒童安全座椅 安心出行」「車用收納盒 空間整齊」。标题建议分成 1-2 行大字，优先使用用户填写的产品功能与核心卖点；搭配 2-4 个短标签强化购买理由。只有图片或用户补充明确支持时才写具体功效、容量、材质、适用人群；否则用通用但准确的词，例如「穩固支撐」「清爽透氣」「可拆清洗」「車內適用」「居家實用」。",
+    scene: "必须生成真实消费场景，不要只做纯棚拍。根据产品品类选择最相关场景：车用品放在车内、中控、后座或后备箱；居家用品放在客厅、厨房、卧室或桌面；儿童用品放在安全、干净、明亮的家庭或车内场景。商品主体占画面 35%-55%，放在右下或中右位置，透视真实、有光影、有质感；左侧或上方放超大主标题，使用高对比粗体字和描边，背景可轻微虚化以突出商品。可加入少量功能氛围元素，例如香气光线、清洁光效、防护弧线、收纳前后对比，但不得添加不存在的结构、品牌或夸大功效。",
   },
   {
     title: "防護支撐圖",
@@ -177,7 +177,7 @@ const evidenceRules = [
 ].join("\n");
 
 function categoryGuard(settings) {
-  const text = [settings.productName, settings.coreBenefit, settings.extraInfo, settings.constraints].filter(Boolean).join(" ").toLowerCase();
+  const text = [settings.productName, settings.productFunction, settings.coreBenefit, settings.extraInfo, settings.constraints].filter(Boolean).join(" ").toLowerCase();
   const storageWords = ["收纳", "收納", "storage", "organizer", "置物", "盒", "袋", "籃", "篮", "架"];
   const childSeatWords = ["儿童", "兒童", "宝宝", "寶寶", "安全座椅", "座椅", "坐垫", "坐墊", "安全帶", "安全带"];
   const carWords = ["车", "車", "tesla", "model y", "后座", "後座", "车载", "車載"];
@@ -386,11 +386,13 @@ function selectedOutputs(settings) {
 
 function promptFor(item, settings) {
   const name = settings.productName || "根据图片自动识别商品名称";
+  const productFunction = settings.productFunction || "未提供，请根据图片可见结构谨慎判断产品功能，不要编造。";
   const benefit = settings.coreBenefit || "根据图片自动提炼核心卖点";
   const extra = settings.extraInfo || "未提供额外信息，请根据图片谨慎判断，不要编造规格。";
   const constraints = settings.constraints || "不要添加未提供的品牌、认证、尺寸、材质或夸张功效。";
   const role = item.kind === "main" ? "台湾虾皮商品主图" : "台湾虾皮商品详情页";
-  const style = settings.stylePreset === "clean" ? "干净白底、橙色点缀、移动端可读" : settings.stylePreset === "dark" ? "黑橙科技质感、强对比、适合车用品" : "橙色爆款电商风、粗体繁体中文、白描边、圆角信息块";
+  const presetStyle = settings.stylePreset === "clean" ? "干净白底、橙色点缀、移动端可读" : settings.stylePreset === "dark" ? "黑橙科技质感、强对比、适合车用品" : "橙色爆款电商风、粗体繁体中文、白描边、圆角信息块";
+  const style = settings.visualStyle ? `${presetStyle}；用户偏好的画面风格：${settings.visualStyle}` : presetStyle;
   const goal = settings.goal === "click" ? "优先提升列表点击率，强化第一眼吸引力和核心卖点识别。" : settings.goal === "conversion" ? "优先提升详情页转化，强化可信说明、使用场景和购买理由。" : "兼顾点击率与转化率，画面清楚、卖点明确、信息不过载。";
   const mainBlueprint = item.kind === "main" ? mainBlueprints[item.index - 1] || mainBlueprints[0] : null;
   const detailBlueprint = item.kind === "detail" ? detailBlueprints[item.index - 1] || detailBlueprints[0] : null;
@@ -415,7 +417,7 @@ function promptFor(item, settings) {
     `你是专业台湾虾皮电商设计师和商品广告策划。请基于用户上传的产品图，直接生成一张 1:1 ${role}。`,
     `图片编号：${item.type} ${String(item.index).padStart(2, "0")}，主题：${item.title}。`,
     "开始创作前，请先在内部完成商品理解：识别产品品类、可见结构、颜色材质、可能使用场景、目标受众、购买动机、可见卖点与不可确认信息；这些分析不要输出成大段文字，只用于画面和文案决策。",
-    `商品名称：${name}。核心卖点：${benefit}。`,
+    `商品名称：${name}。产品功能：${productFunction}。核心卖点：${benefit}。`,
     `可选补充信息：${extra}。`,
     `用户约束：${constraints}。`,
     `品类守门规则：\n${categoryGuard(settings)}`,

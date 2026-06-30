@@ -237,6 +237,8 @@ function payload() {
       detailBatch: $("detailBatch")?.value || "front",
       outputLanguage: $("outputLanguage").value,
       productName: $("productName").value.trim(),
+      productFunction: $("productFunction").value.trim(),
+      visualStyle: $("visualStyle").value.trim(),
       coreBenefit: $("coreBenefit").value.trim(),
       extraInfo: $("extraInfo").value.trim(),
       constraints: $("constraints").value.trim(),
