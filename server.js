@@ -917,7 +917,7 @@ async function runGenerationJob(job, images, settings, imageUrls) {
 
 async function runGenerationItems(job, images, settings, imageUrls, indexes) {
   job.status = "running";
-  const concurrency = 1;
+  const concurrency = job.provider === "ark" ? 1 : 3;
   await runWithConcurrency(indexes, concurrency, async (resultIndex) => {
     const item = job.results[resultIndex];
     const index = resultIndex;
