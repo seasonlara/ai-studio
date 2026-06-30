@@ -140,7 +140,16 @@ const cuteKitchenApplianceBlueprints = [
 ];
 
 function cuteKitchenApplianceStrategy(item, settings) {
-  const text = [settings.productName, settings.productFunction, settings.coreBenefit, settings.extraInfo].filter(Boolean).join(" ").toLowerCase();
+  const text = [
+    settings.productName,
+    settings.productFunction,
+    settings.coreBenefit,
+    settings.extraInfo,
+    settings.materialInfo,
+    settings.sizeInfo,
+    settings.targetAudience,
+    settings.proExtraInfo,
+  ].filter(Boolean).join(" ").toLowerCase();
   const blackTechWords = ["手机支架", "手機支架", "车载", "車載", "车用", "車用", "导航", "導航", "吸盘", "吸盤", "仪表板", "儀表板", "中控", "magsafe"];
   if (blackTechWords.some((word) => text.includes(word.toLowerCase()))) return "";
   const matched = cuteKitchenApplianceKeywords.some((word) => text.includes(word.toLowerCase()));
@@ -244,7 +253,18 @@ const blackTechAccessoryBlueprints = [
 ];
 
 function blackTechAccessoryStrategy(item, settings) {
-  const text = [settings.productName, settings.productFunction, settings.coreBenefit, settings.extraInfo, settings.visualStyle, settings.stylePreset].filter(Boolean).join(" ").toLowerCase();
+  const text = [
+    settings.productName,
+    settings.productFunction,
+    settings.coreBenefit,
+    settings.extraInfo,
+    settings.materialInfo,
+    settings.sizeInfo,
+    settings.targetAudience,
+    settings.proExtraInfo,
+    settings.visualStyle,
+    settings.stylePreset,
+  ].filter(Boolean).join(" ").toLowerCase();
   const matched = blackTechAccessoryKeywords.some((word) => text.includes(word.toLowerCase()));
   if (!matched || item.kind !== "main") return "";
   const blueprint = blackTechAccessoryBlueprints[item.index - 1];
@@ -300,7 +320,18 @@ const creativeStyleFamilies = [
 ];
 
 function styleFamilyFor(settings) {
-  const text = [settings.productName, settings.productFunction, settings.coreBenefit, settings.extraInfo, settings.visualStyle, settings.stylePreset].filter(Boolean).join(" ").toLowerCase();
+  const text = [
+    settings.productName,
+    settings.productFunction,
+    settings.coreBenefit,
+    settings.extraInfo,
+    settings.materialInfo,
+    settings.sizeInfo,
+    settings.targetAudience,
+    settings.proExtraInfo,
+    settings.visualStyle,
+    settings.stylePreset,
+  ].filter(Boolean).join(" ").toLowerCase();
   const visual = String(settings.visualStyle || "").toLowerCase();
   let best = creativeStyleFamilies[creativeStyleFamilies.length - 1];
   let bestScore = 0;
@@ -450,7 +481,17 @@ const evidenceRules = [
 ].join("\n");
 
 function categoryGuard(settings) {
-  const text = [settings.productName, settings.productFunction, settings.coreBenefit, settings.extraInfo, settings.constraints].filter(Boolean).join(" ").toLowerCase();
+  const text = [
+    settings.productName,
+    settings.productFunction,
+    settings.coreBenefit,
+    settings.extraInfo,
+    settings.materialInfo,
+    settings.sizeInfo,
+    settings.targetAudience,
+    settings.proExtraInfo,
+    settings.constraints,
+  ].filter(Boolean).join(" ").toLowerCase();
   const storageWords = ["收纳", "收納", "storage", "organizer", "置物", "盒", "袋", "籃", "篮", "架"];
   const childSeatWords = ["儿童", "兒童", "宝宝", "寶寶", "安全座椅", "座椅", "坐垫", "坐墊", "安全帶", "安全带"];
   const carWords = ["车", "車", "tesla", "model y", "后座", "後座", "车载", "車載"];
@@ -661,7 +702,11 @@ function promptFor(item, settings) {
   const name = settings.productName || "根据图片自动识别商品名称";
   const productFunction = settings.productFunction || "未提供，请根据图片可见结构谨慎判断产品功能，不要编造。";
   const benefit = settings.coreBenefit || "根据图片自动提炼核心卖点";
-  const extra = settings.extraInfo || "未提供额外信息，请根据图片谨慎判断，不要编造规格。";
+  const materialInfo = settings.materialInfo || "未提供，除非图片清楚可见，否则不要写具体材质。";
+  const sizeInfo = settings.sizeInfo || "未提供，不要生成具体尺寸数字。";
+  const targetAudience = settings.targetAudience || "未提供，请根据商品品类和使用场景谨慎判断。";
+  const proExtraInfo = settings.proExtraInfo || "";
+  const extra = [settings.extraInfo, proExtraInfo].filter(Boolean).join("；") || "未提供额外信息，请根据图片谨慎判断，不要编造规格。";
   const constraints = settings.constraints || "不要添加未提供的品牌、认证、尺寸、材质或夸张功效。";
   const role = item.kind === "main" ? "台湾虾皮商品主图" : "台湾虾皮商品详情页";
   const presetStyle =
@@ -698,7 +743,7 @@ function promptFor(item, settings) {
     `图片编号：${item.type} ${String(item.index).padStart(2, "0")}，主题：${item.title}。`,
     "开始创作前，请先在内部完成商品理解：识别产品品类、可见结构、颜色材质、可能使用场景、目标受众、购买动机、可见卖点与不可确认信息；这些分析不要输出成大段文字，只用于画面和文案决策。",
     `商品名称：${name}。产品功能：${productFunction}。核心卖点：${benefit}。`,
-    `可选补充信息：${extra}。`,
+    `用户补充事实：材质：${materialInfo}；尺寸：${sizeInfo}；适用人群：${targetAudience}；其他补充信息：${extra}。`,
     `用户约束：${constraints}。`,
     `品类守门规则：\n${categoryGuard(settings)}`,
     `出图目标：${goal}`,

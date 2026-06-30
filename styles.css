@@ -721,6 +721,58 @@ button:disabled {
   background: rgba(15, 23, 42, 0.62);
 }
 
+.pro-more-fields {
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.42);
+  overflow: hidden;
+}
+
+.pro-more-fields summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  padding: 13px 16px;
+  color: #fef3c7;
+  font-size: 13px;
+  font-weight: 850;
+  list-style: none;
+}
+
+.pro-more-fields summary::-webkit-details-marker {
+  display: none;
+}
+
+.pro-more-fields summary::after {
+  content: "+";
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.pro-more-fields[open] summary::after {
+  content: "-";
+}
+
+.pro-more-fields summary small {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pro-more-grid {
+  padding: 0 16px 16px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1473,6 +1525,7 @@ body.modal-open {
   .form-grid,
   .species-form,
   .pro-console-grid,
+  .pro-more-grid,
   .deal-strip {
     grid-template-columns: 1fr;
   }
