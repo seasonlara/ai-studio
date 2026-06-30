@@ -68,7 +68,7 @@ const mainBlueprints = [
     title: "細節特寫圖",
     purpose: "展示產品的真實細節，建立品質信任感。",
     copy: "選 3 個原圖可見細節做短標籤，例如「透氣網布」「精密車線」「調節織帶」「加厚邊線」「可愛圖案」。扣具類文案必須對應原圖同款扣具；若扣具形狀不清楚，改寫「調節織帶」或「細節特寫」。",
-    scene: "三段式細節版面：左圖右字或交錯卡片，使用原產品局部微距特寫、圓角圖片框、粗體繁體中文，背景為高級暖橙漸層。局部圖不可替換成其他商品的扣具、織帶、面料或圖案。",
+    scene: "三段式細節版面：左圖右字或交錯卡片，使用原產品局部微距特寫、圓角圖片框、粗體繁體中文；背景、色調、標籤形狀與光效必須延續本套主圖已選定的整體風格，不可固定套用暖橙漸層。局部圖不可替換成其他商品的扣具、織帶、面料或圖案。",
   },
   {
     title: "包裝內容圖",
@@ -338,6 +338,29 @@ function generalCreativeStrategy(item, settings) {
     "如果用户填写了「画面风格」，以用户风格为优先；但仍要保证商品真实、文字准确、适合台湾虾皮移动端浏览。",
     "若无法判断品类，不要硬套参考图，使用通用橙色爆款电商风，并围绕商品可见结构生成保守卖点。",
   ].join("\n");
+}
+
+function seriesStyleLock(item, settings) {
+  if (item.kind !== "main") return "";
+
+  const family = styleFamilyFor(settings);
+  const lockRules = [
+    "整组主图一致性规则：本次生成的所有主图必须像同一个商品系列、同一次设计产出的套图。",
+    `整组统一视觉母版：${family.name}。`,
+    `整组统一色彩与质感：${family.style}`,
+    "整组统一排版语言：标题字体、描边厚度、标签形状、图标风格、光效类型、背景质感必须一致；不同主题可以换构图，但不能突然切换到另一种色系或另一类电商模板。",
+    "如果前几张已经是黑蓝科技、冷灰金属、HUD 光效、车内质感，则后续所有主图也必须继续使用黑蓝/冷灰/金属/HUD/车内科技视觉，禁止出现橙色卡通、暖橙厨房、奶油可爱风。",
+    "如果前几张已经是奶油粉、暖窗光、可爱居家小物风，则后续所有主图也必须继续使用奶油粉/暖色/可爱圆角标签，禁止突然切换到黑蓝科技风。",
+  ];
+
+  if (item.index === 6) {
+    lockRules.push(
+      "第 6 张「細節特寫圖」特别要求：这是同一套主图里的细节页，不是另一套详情页模板；背景、色调、字体、标签和光效必须延续第 1-5 张的视觉系统。",
+      "第 6 张可以展示局部细节卡片或微距图，但卡片颜色、标题颜色、描边风格必须与整套一致；不得使用与本组其他主图明显不同的橙色说明卡、暖色渐层或可爱风版式，除非整组本身就是该风格。"
+    );
+  }
+
+  return lockRules.join("\n");
 }
 
 const detailBlueprints = [
@@ -641,7 +664,12 @@ function promptFor(item, settings) {
   const extra = settings.extraInfo || "未提供额外信息，请根据图片谨慎判断，不要编造规格。";
   const constraints = settings.constraints || "不要添加未提供的品牌、认证、尺寸、材质或夸张功效。";
   const role = item.kind === "main" ? "台湾虾皮商品主图" : "台湾虾皮商品详情页";
-  const presetStyle = settings.stylePreset === "clean" ? "干净白底、橙色点缀、移动端可读" : settings.stylePreset === "dark" ? "黑橙科技质感、强对比、适合车用品" : "橙色爆款电商风、粗体繁体中文、白描边、圆角信息块";
+  const presetStyle =
+    settings.stylePreset === "clean"
+      ? "干净白底、橙色点缀、移动端可读"
+      : settings.stylePreset === "dark"
+        ? "黑橙科技质感、强对比、适合车用品"
+        : "Shopee 台湾电商风，由 AI 根据商品品类、颜色、材质、价格感和目标受众自动匹配画面风格";
   const style = settings.visualStyle ? `${presetStyle}；用户偏好的画面风格：${settings.visualStyle}` : presetStyle;
   const goal = settings.goal === "click" ? "优先提升列表点击率，强化第一眼吸引力和核心卖点识别。" : settings.goal === "conversion" ? "优先提升详情页转化，强化可信说明、使用场景和购买理由。" : "兼顾点击率与转化率，画面清楚、卖点明确、信息不过载。";
   const mainBlueprint = item.kind === "main" ? mainBlueprints[item.index - 1] || mainBlueprints[0] : null;
@@ -676,6 +704,7 @@ function promptFor(item, settings) {
     `出图目标：${goal}`,
     `画幅比例：${aspectRatio}。请根据该比例安排产品、标题和卖点标签，避免文字贴边或被裁切。`,
     generalCreativeStrategy(item, settings),
+    seriesStyleLock(item, settings),
     mainStrategy,
     sameCategoryStrategy,
     detailStrategy,
