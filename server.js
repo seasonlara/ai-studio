@@ -90,6 +90,256 @@ const mainBlueprints = [
   },
 ];
 const mainTitles = mainBlueprints.map((item) => item.title);
+const cuteKitchenApplianceKeywords = ["封口", "塑封", "密封", "真空", "保鲜", "保鮮", "零食", "厨房", "廚房", "小家电", "小家電", "迷你", "便携", "便攜", "usb", "type-c", "磁吸"];
+const cuteKitchenApplianceBlueprints = [
+  {
+    title: "可愛廚房首圖",
+    copy: "首圖要像可愛小家電爆款廣告：大標題突出「零食保鮮」「一壓即封」「密封神器」等核心利益，搭配 2-3 個短標籤如「高溫秒封」「輕巧便攜」「可愛造型」。",
+    scene: "暖色廚房或餐桌場景，木紋桌面、午後窗光、零食袋/保鮮袋/杯子作陪襯。產品以可愛造型大比例出現，最好展示雙色或多角度；文字用黃色/粉色填充、深咖啡粗描邊、白色外描邊，整體可愛、明亮、柔和。",
+  },
+  {
+    title: "一壓即封場景",
+    copy: "強調實際操作與封口效率，主標可用「一壓即封」「瞬間鎖鮮」「3秒密封」。副標補充「無需預熱」「防潮防霉」「高溫快速封口」等，但只在產品功能支持時使用。",
+    scene: "人物手持產品正在封零食袋或透明保鮮袋，畫面要有真實操作感。可加一個小插圖框展示封口前後效果，底部放 2-3 個膠囊標籤。",
+  },
+  {
+    title: "磁吸收納",
+    copy: "如果商品具備磁吸或可吸附底部，主標使用「磁吸設計 隨手收納」「吸附冰箱不佔位」。若無法確認磁吸，改成「輕巧收納」「掛放不佔位」。",
+    scene: "產品吸附在冰箱、金屬櫃或廚房牆面上，旁邊可有可愛磁貼。用光點或小火花強調吸附位置，右側放大標題和 2-3 個短標籤。",
+  },
+  {
+    title: "輕巧便攜",
+    copy: "突出重量、尺寸和隨身攜帶，主標如「僅重50g 輕盈如羽」「掌心大小 隨身好帶」。沒有明確重量時不要寫數字，改成「輕巧便攜」「不佔空間」。",
+    scene: "超大數字或掌心對比構圖，產品放在手上或桌面角落，背景仍是暖色廚房。可加入羽毛、掌心、迷你尺寸感元素，但不要改變產品真實比例過度誇張。",
+  },
+  {
+    title: "多材質適用",
+    copy: "展示可封多種袋材或使用情境，主標可用「不挑袋子 萬物皆可封」「零食袋/保鮮袋/茶葉包 都能封」。只展示常見袋材，不要寫未確認的專業材質或真空效果。",
+    scene: "桌面平鋪多種袋子：洋芋片袋、保鮮袋、茶葉包、餅乾袋、塑料袋。用虛線箭頭從產品指向各類袋子，搭配可愛貓爪/圓角對話框標籤。",
+  },
+  {
+    title: "安全防燙結構",
+    copy: "強調安全、防燙、隱藏式發熱絲等結構。若看不到或用戶未提供發熱絲，不要畫透明剖面硬說；可改成「安全防護」「防誤觸設計」「使用更安心」。",
+    scene: "產品超近距離特寫，展示封口槽、按鍵、開合口。可用半透明線稿或光線標出內部加熱位置，但不能新增不存在的零件；底部用大條幅寫核心安全文案。",
+  },
+  {
+    title: "USB充電續航",
+    copy: "如果商品可充電，主標突出「USB充電」「Type-C 通用接口」「免換電池」。沒有充電口或電池資訊時，改成「隨手使用」「省力操作」。",
+    scene: "產品插著充電線，旁邊有零食袋和暖色廚房背景。用綠色小指示燈、線材、膠囊標籤展示充電賣點；避免編造續航月份。",
+  },
+  {
+    title: "戶外便攜情境",
+    copy: "將產品帶入野餐、露營、外出零食保鮮場景，主標如「野餐露營 隨帶隨走」「出遊必備 防潮保鮮」。",
+    scene: "人物把產品放入帆布袋、野餐籃或露營收納包，桌上有零食、馬卡龍、飲品。商品要清楚可見，不被人物遮住，畫面生活感強。",
+  },
+  {
+    title: "雙色現貨與配件",
+    copy: "展示顏色、出貨內容、售後保障與配件。若未提供保固或配件，不要寫「保固一年」「贈充電線」；改成「多色可選」「內容物依賣場為準」。",
+    scene: "產品雙色或多色並列，旁邊可展示包裝盒與充電線，但只有在圖片或補充資訊支持時才畫。可用金色圓章做保障感，但不寫未確認保固。",
+  },
+];
+
+function cuteKitchenApplianceStrategy(item, settings) {
+  const text = [settings.productName, settings.productFunction, settings.coreBenefit, settings.extraInfo].filter(Boolean).join(" ").toLowerCase();
+  const blackTechWords = ["手机支架", "手機支架", "车载", "車載", "车用", "車用", "导航", "導航", "吸盘", "吸盤", "仪表板", "儀表板", "中控", "magsafe"];
+  if (blackTechWords.some((word) => text.includes(word.toLowerCase()))) return "";
+  const matched = cuteKitchenApplianceKeywords.some((word) => text.includes(word.toLowerCase()));
+  if (!matched || item.kind !== "main") return "";
+  const blueprint = cuteKitchenApplianceBlueprints[item.index - 1];
+  if (!blueprint) return "";
+  return [
+    "同类商品专用策略：用户商品疑似可爱封口机、迷你塑封机、便携厨房小家电或零食保鲜工具。请优先参考这类产品主图规律。",
+    `本张同类主图主题：${blueprint.title}`,
+    `同类文案策略：${blueprint.copy}`,
+    `同类画面策略：${blueprint.scene}`,
+    "整套 9 张图的逻辑应依次覆盖：首图爆款卖点、实际封口操作、磁吸/收纳、轻巧便携、多材质适用、安全防烫、充电续航、外出携带、颜色配件/出货信息。",
+    "视觉风格：暖色厨房、木纹桌面、粉黄奶油色、可爱猫爪/圆角标签、粗体繁体中文、深咖啡描边、白色外描边、柔和窗光。不要使用冷硬科技风。",
+  ].join("\n");
+}
+
+const blackTechAccessoryKeywords = [
+  "黑色",
+  "科技感",
+  "科技",
+  "车载",
+  "車載",
+  "车用",
+  "車用",
+  "手机支架",
+  "手機支架",
+  "支架",
+  "磁吸",
+  "磁力",
+  "magsafe",
+  "真空",
+  "吸附",
+  "吸盘",
+  "吸盤",
+  "旋转",
+  "旋轉",
+  "360",
+  "导航",
+  "導航",
+  "仪表板",
+  "儀表板",
+  "中控",
+  "车内",
+  "車內",
+  "金属",
+  "金屬",
+  "合金",
+  "霓虹",
+  "赛博",
+  "賽博",
+  "cyber",
+  "dark",
+  "tech",
+];
+const blackTechAccessoryBlueprints = [
+  {
+    title: "白底科技首圖",
+    copy: "首圖走高級白底科技廣告，主標聚焦「真空超強吸附」「狂抖不掉」「強力磁吸」「360°旋轉」等最核心利益；底部用 3-4 個深藍/金色賣點膠囊標籤。不要寫萬斤吸力、N52、120N、5kg 等未提供數字。",
+    scene: "白色或淺灰棚拍背景，黑色/槍灰金屬產品占畫面右側 45%-60%，左側大黑字，底部整齊圖標標籤。產品要有金屬反光、清晰邊緣、精密工業質感。",
+  },
+  {
+    title: "深色爆款封面",
+    copy: "主標用強烈衝擊句，例如「吸力驚人 強勁支撐」「磁吸車載支架 狂甩不掉」。副標與黃色膠囊列出「強磁吸附」「靈活旋轉」「隱形可折疊」「穩固防抖」等保守賣點。",
+    scene: "深藍黑科技背景、玻璃或車內中控台面，產品在右側或右下，加入冷藍光束、火花、速度線。文字使用黃白高對比、黑色粗描邊，整體要像台灣蝦皮高點擊主圖。",
+  },
+  {
+    title: "車內質感場景",
+    copy: "強調精工細作、金屬質感、多角度調節與車內使用質感。文案可用「精工細作」「穩固耐用」「隨心調整」。避免寫專利、航空級、特定磁石型號，除非用戶提供。",
+    scene: "高級車內中控、儀表台或扶手箱場景，背景淺景深，黑色金屬產品放在儀表台或中控台上，光線從車窗進入，整體偏高級、冷調、商務科技。",
+  },
+  {
+    title: "穩固力說明",
+    copy: "以「真空超強吸附」「超乎想像的穩固力」為主軸，補充「即貼即用」「高負重」「無痕吸附」「一鍵釋放」「通用適配」等通用說法；數值與車型兼容不可編造。",
+    scene: "產品大圖疊加半透明吸附層、藍色氣流、HUD 箭頭、底部賣點矩陣。背景可有模糊車內輪廓和技術網格，版面乾淨、有工程解釋感。",
+  },
+  {
+    title: "結構測試圖",
+    copy: "展示機構原理與承重測試感，文案可用「機構原理」「高負重測試」「穩固不鬆動」。若用戶未提供承重數字，測試砝碼不得寫具體重量，只寫「高負重測試」或「以賣場資訊為準」。",
+    scene: "左右分屏：左側展示真空吸附或旋鈕/閥門機構剖面，右側展示支架承重測試示意。使用英文小標可保留為裝飾，但主要文案必須是繁體中文；技術線稿和箭頭要清晰。",
+  },
+  {
+    title: "一鍵吸附鎖定",
+    copy: "主標突出「真空抽氣 一按即牢」「強力電控真空閥」「緊鎖不掉落」。只在產品看起來具備按鍵/真空閥時使用；否則改成「穩固吸附 即貼即用」。",
+    scene: "淺灰藍科技棚拍，產品右側大比例，底部或左側排列圖標：一鍵排氣、吸力支撐、玻璃/儀表板適用、不傷車面。底座可加入藍色向上氣流和吸附光圈。",
+  },
+  {
+    title: "吸盤底座特寫",
+    copy: "少文字或無文字，重點呈現吸盤底座細節、密封圈、旋鈕紋理、儀表台貼合感。可用短標「穩固吸附」「不易位移」。",
+    scene: "超近距離微距特寫，產品底座吸附在黑色皮革或儀表台紋理表面，藍色吸附線條從底座向外擴散，暖冷混合光，質感要真實。",
+  },
+  {
+    title: "真空機構透視",
+    copy: "展示真空抽氣與重複使用概念，主標可用「真空抽氣 一按即牢」。賣點標籤使用「強力真空吸附」「一鍵自動排氣」「可重複使用」等，不能寫未提供的壽命次數。",
+    scene: "深色儀表台背景，底座剖面或半透明截面，內部藍色旋渦氣流、紅色狀態燈或科技提示，不要讓剖面破壞產品真實外觀。",
+  },
+  {
+    title: "賽博促銷科技圖",
+    copy: "主標走高飽和促銷語氣，例如「強力磁吸 穩定導航」「多角度調節 專為駕駛設計」。底部可放「品質保障」「限時優惠」「全網熱銷」等促銷標籤，但不要添加平台 Logo。",
+    scene: "黑藍賽博科技空間、霓虹青紫光、電路板紋理或未來城市背景，產品站在科技底座上，文字大、亮、強對比。適合作為高點擊備選主圖。",
+  },
+];
+
+function blackTechAccessoryStrategy(item, settings) {
+  const text = [settings.productName, settings.productFunction, settings.coreBenefit, settings.extraInfo, settings.visualStyle, settings.stylePreset].filter(Boolean).join(" ").toLowerCase();
+  const matched = blackTechAccessoryKeywords.some((word) => text.includes(word.toLowerCase()));
+  if (!matched || item.kind !== "main") return "";
+  const blueprint = blackTechAccessoryBlueprints[item.index - 1];
+  if (!blueprint) return "";
+  return [
+    "同类商品专用策略：用户商品疑似黑色科技感车载数码配件、手机支架、磁吸支架、真空吸附支架或旋转导航支架。请优先参考黑色科技车载配件主图规律。",
+    `本张同类主图主题：${blueprint.title}`,
+    `同类文案策略：${blueprint.copy}`,
+    `同类画面策略：${blueprint.scene}`,
+    "整套 9 张图的逻辑应依次覆盖：白底科技首图、深色爆款封面、车内质感场景、稳固力说明、结构/负重测试、按压吸附锁定、吸盘底座微距、真空机构透视、赛博促销科技图。",
+    "视觉风格：黑色、枪灰、金属、冷蓝、冰白、深 navy、赛博霓虹、HUD 光效、工程线稿、真实车内中控场景。不要使用可爱粉色、猫爪、厨房小家电风。",
+    "准确性限制：不要添加 Shopee 或其他平台 Logo；不要编造 N52、航空级合金、专利、承重数字、吸力数值、车型兼容或认证；如需硬规格统一写「以賣場資訊為準」。",
+  ].join("\n");
+}
+
+const creativeStyleFamilies = [
+  {
+    name: "黑色科技車用品",
+    keywords: blackTechAccessoryKeywords,
+    style: "冷灰、黑色、金屬、深藍、冰白、HUD 光效、車內中控或科技棚拍，強調穩固、精密、可靠。",
+    copy: "用短促有力的科技感文案，優先突出穩固、吸附、旋轉、車內適用、精工質感；避免可愛化與暖粉色。",
+  },
+  {
+    name: "可愛居家小物",
+    keywords: cuteKitchenApplianceKeywords,
+    style: "奶油色、粉色、木紋桌面、暖窗光、圓角標籤、可愛圖形元素，強調日常便利與療癒感。",
+    copy: "用親切可愛的生活化文案，優先突出輕巧、方便、收納、保鮮、家用場景；避免冷硬科技風。",
+  },
+  {
+    name: "親子安全用品",
+    keywords: ["儿童", "兒童", "宝宝", "寶寶", "安全座椅", "座椅", "坐垫", "坐墊", "安全帶", "安全带", "嬰兒", "婴儿"],
+    style: "明亮車內或家庭場景、柔和藍白或暖橙背景、信任感圖標、清楚結構標示，強調穩固、舒適、便利。",
+    copy: "用安心但保守的文案，避免認證、承重、年齡、碰撞保護等未提供硬聲明。",
+  },
+  {
+    name: "美妝保養健康感",
+    keywords: ["美容", "美妆", "美妝", "保养", "保養", "精华", "精華", "牙膏", "口腔", "清洁", "清潔", "护理", "護理", "香膏", "除臭"],
+    style: "乾淨高級、玻璃反光、柔和光暈、成分感或清潔感背景，色彩可用白、金、淺藍、品牌主色。",
+    copy: "用效果感與信任感文案，但不得生成醫療療效、治療、保證有效等敏感或無證明聲明。",
+  },
+  {
+    name: "質感生活家居",
+    keywords: ["家居", "居家", "收纳", "收納", "置物", "桌面", "厨房", "廚房", "浴室", "客厅", "客廳", "衣物", "清潔"],
+    style: "高級生活場景、自然光、木質或柔和中性色、乾淨留白，讓商品看起來實用且有質感。",
+    copy: "用生活改善型文案，突出整齊、省空間、好清潔、好拿取、日常實用。",
+  },
+  {
+    name: "通用橙色爆款",
+    keywords: [],
+    style: "台灣蝦皮橙色爆款風、粗體繁體中文、白描邊、圓角資訊塊、清晰商品主體、強對比但不雜亂。",
+    copy: "先識別品類與使用場景，再用核心利益、場景痛點、細節信任、使用便利四類文案組合出圖。",
+  },
+];
+
+function styleFamilyFor(settings) {
+  const text = [settings.productName, settings.productFunction, settings.coreBenefit, settings.extraInfo, settings.visualStyle, settings.stylePreset].filter(Boolean).join(" ").toLowerCase();
+  const visual = String(settings.visualStyle || "").toLowerCase();
+  let best = creativeStyleFamilies[creativeStyleFamilies.length - 1];
+  let bestScore = 0;
+
+  for (const family of creativeStyleFamilies) {
+    const score = family.keywords.reduce((sum, word) => (text.includes(word.toLowerCase()) ? sum + 1 : sum), 0);
+    if (score > bestScore) {
+      best = family;
+      bestScore = score;
+    }
+  }
+
+  if (visual) {
+    const override = creativeStyleFamilies.find((family) => visual.includes(family.name.slice(0, 2).toLowerCase()));
+    if (override) return override;
+  }
+  return best;
+}
+
+function generalCreativeStrategy(item, settings) {
+  const family = styleFamilyFor(settings);
+  const imageRole =
+    item.kind === "detail"
+      ? "详情页重点是按浏览顺序讲清楚：先建立购买理由，再解释结构、场景、规格和可信细节。"
+      : item.index === 1
+        ? "第一张主图必须承担点击转化任务：真实场景 + 商品大主体 + 最强核心卖点，不能只是普通产品展示。"
+        : "主图系列应避免重复构图，每张只解决一个购买疑问或强化一个卖点。";
+
+  return [
+    "通用创意路由策略：不要机械套用某一套参考图。先根据商品图片与用户文字判断品类、价格感、颜色、材质、使用场景和目标人群，再选择最适合的电商画面语言。",
+    `自动选择的画面风格：${family.name}。`,
+    `风格执行：${family.style}`,
+    `文案方向：${family.copy}`,
+    `本张图片任务：${imageRole}`,
+    "如果用户填写了「画面风格」，以用户风格为优先；但仍要保证商品真实、文字准确、适合台湾虾皮移动端浏览。",
+    "若无法判断品类，不要硬套参考图，使用通用橙色爆款电商风，并围绕商品可见结构生成保守卖点。",
+  ].join("\n");
+}
+
 const detailBlueprints = [
   {
     title: "功能總覽",
@@ -403,6 +653,7 @@ function promptFor(item, settings) {
         `画面布局策略：${mainBlueprint.scene}`,
       ].join("\n")
     : "";
+  const sameCategoryStrategy = [cuteKitchenApplianceStrategy(item, settings), blackTechAccessoryStrategy(item, settings)].filter(Boolean).join("\n");
   const detailStrategy = detailBlueprint
     ? [
         `本张详情页在 12 屏链路中的位置：第 ${item.index} 屏，主题「${detailBlueprint.title}」。`,
@@ -422,7 +673,9 @@ function promptFor(item, settings) {
     `用户约束：${constraints}。`,
     `品类守门规则：\n${categoryGuard(settings)}`,
     `出图目标：${goal}`,
+    generalCreativeStrategy(item, settings),
     mainStrategy,
+    sameCategoryStrategy,
     detailStrategy,
     `准确性与细节约束：\n${evidenceRules}`,
     `整体风格：${style}。`,
