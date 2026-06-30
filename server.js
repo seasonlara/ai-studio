@@ -917,7 +917,7 @@ async function runGenerationJob(job, images, settings, imageUrls) {
 
 async function runGenerationItems(job, images, settings, imageUrls, indexes) {
   job.status = "running";
-  const concurrency = job.provider === "ark" ? 1 : 3;
+  const concurrency = 1;
   await runWithConcurrency(indexes, concurrency, async (resultIndex) => {
     const item = job.results[resultIndex];
     const index = resultIndex;
@@ -1146,7 +1146,15 @@ function serveStatic(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url === "/api/health") return sendJson(res, 200, { hasApiKey: Boolean(ARK_API_KEY), dryRun: DRY_RUN, model: ARK_MODEL, models: allowedModels });
+  if (req.url === "/api/health") {
+    return sendJson(res, 200, {
+      hasApiKey: Boolean(ARK_API_KEY),
+      hasAigcToken: Boolean(AIGC51_TOKEN),
+      dryRun: DRY_RUN,
+      model: ARK_MODEL,
+      models: allowedModels,
+    });
+  }
   if (req.url === "/api/generate" && req.method === "POST") return handleGenerate(req, res);
   if (req.url === "/api/download-zip" && req.method === "POST") return handleDownloadZip(req, res);
   if (req.url === "/api/download-image" && req.method === "POST") return handleDownloadImage(req, res);
