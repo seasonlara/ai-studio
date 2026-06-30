@@ -702,7 +702,7 @@ function promptFor(item, settings) {
     `用户约束：${constraints}。`,
     `品类守门规则：\n${categoryGuard(settings)}`,
     `出图目标：${goal}`,
-    `画幅比例：${aspectRatio}。请根据该比例安排产品、标题和卖点标签，避免文字贴边或被裁切。`,
+    `画幅比例：${aspectRatio}。最终输出图片画布必须严格符合 ${aspectRatio}，不是 1:1 方图；请根据该比例安排产品、标题和卖点标签，避免文字贴边或被裁切。`,
     generalCreativeStrategy(item, settings),
     seriesStyleLock(item, settings),
     mainStrategy,
@@ -819,10 +819,12 @@ async function callApizImage(prompt, imageUrls, provider, settings = {}) {
   const params = isGptImage2
     ? {
         prompt,
-        image_urls: imageUrls,
-        image_size: aspectRatio,
-        resolution: "1K",
-        quality: "low",
+      image_urls: imageUrls,
+      image_size: aspectRatio,
+      aspect_ratio: aspectRatio,
+      aspectRatio,
+      resolution: "1K",
+      quality: "low",
         num_images: 1,
         output_format: "png",
         watermark: false,
@@ -830,10 +832,12 @@ async function callApizImage(prompt, imageUrls, provider, settings = {}) {
       }
     : {
         prompt,
-        image_urls: imageUrls,
-        size: "1K",
-        aspect_ratio: aspectRatio,
-        watermark: false,
+      image_urls: imageUrls,
+      size: "1K",
+      image_size: aspectRatio,
+      aspect_ratio: aspectRatio,
+      aspectRatio,
+      watermark: false,
         add_watermark: false,
       };
 
