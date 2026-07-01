@@ -20,6 +20,9 @@ ARK_IMAGE_MODEL=doubao-seedream-5-0-260128
 ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 AIGC51_TOKEN=你的51AIGC或APIZ接口Token
 APIZ_API_BASE=https://api.apiz.ai
+DMX_API_KEY=你的DMXAPI Key
+DMX_API_BASE=https://www.dmxapi.cn/v1
+DMX_IMAGE_MODEL=gpt-image-2-ssvip
 PORT=8790
 ```
 
@@ -36,8 +39,10 @@ https://你的域名/api/health
 ```json
 {
   "hasApiKey": true,
+  "hasDmxKey": true,
   "dryRun": false,
-  "model": "doubao-seedream-5-0-260128"
+  "model": "doubao-seedream-5-0-260128",
+  "dmxModel": "gpt-image-2-ssvip"
 }
 ```
 

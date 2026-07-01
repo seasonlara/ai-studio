@@ -16,3 +16,9 @@ services:
         sync: false
       - key: APIZ_API_BASE
         value: https://api.apiz.ai
+      - key: DMX_API_KEY
+        sync: false
+      - key: DMX_API_BASE
+        value: https://www.dmxapi.cn/v1
+      - key: DMX_IMAGE_MODEL
+        value: gpt-image-2-ssvip

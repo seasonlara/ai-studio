@@ -10,6 +10,9 @@ const ARK_MODEL = process.env.ARK_IMAGE_MODEL || "doubao-seedream-5-0-260128";
 const ARK_API_KEY = process.env.ARK_API_KEY || "";
 const APIZ_API_BASE = process.env.APIZ_API_BASE || "https://api.apiz.ai";
 const AIGC51_TOKEN = process.env.AIGC51_TOKEN || "";
+const DMX_API_BASE = (process.env.DMX_API_BASE || "https://www.dmxapi.cn/v1").replace(/\/$/, "");
+const DMX_API_KEY = process.env.DMX_API_KEY || process.env.DMXAPI_KEY || "";
+const DMX_IMAGE_MODEL = process.env.DMX_IMAGE_MODEL || "gpt-image-2-ssvip";
 const DRY_RUN = process.env.ARK_DRY_RUN === "1" || !ARK_API_KEY;
 const APIZ_TASK_TIMEOUT_MS = Number(process.env.APIZ_TASK_TIMEOUT_MS || 10 * 60 * 1000);
 const APIZ_TASK_POLL_INTERVAL_MS = Number(process.env.APIZ_TASK_POLL_INTERVAL_MS || 5000);
@@ -816,6 +819,22 @@ function arkSizeFromAspectRatio(value) {
   }[safeAspectRatio(value)];
 }
 
+function dmxSizeFromAspectRatio(value) {
+  return {
+    "1:1": "1024x1024",
+    "3:4": "1024x1536",
+    "4:3": "1536x1024",
+    "16:9": "1536x1024",
+    "21:9": "1536x1024",
+    "9:16": "1024x1536",
+  }[safeAspectRatio(value)] || "1024x1024";
+}
+
+function uploadFilename(index, mimeType) {
+  const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+  return `product-${index + 1}.${ext}`;
+}
+
 async function callArkImage(prompt, images, model, settings = {}) {
   const body = {
     model,
@@ -923,8 +942,67 @@ async function callApizImage(prompt, imageUrls, provider, settings = {}) {
   return waitForApizTask(taskId);
 }
 
+function extractDmxImageUrl(data) {
+  const first = Array.isArray(data?.data) ? data.data[0] : data?.data || data;
+  const b64 = first?.b64_json || first?.image?.b64_json || data?.b64_json;
+  if (b64) return `data:image/png;base64,${b64}`;
+  return first?.url || first?.image_url || data?.url || "";
+}
+
+async function callDmxImageEdit(prompt, images, settings = {}) {
+  if (!DMX_API_KEY) throw new Error("DMXAPI GPT Image 2 Edit 需要配置 DMX_API_KEY。");
+  if (!images.length) throw new Error("DMXAPI GPT Image 2 Edit 需要至少上传 1 张商品图。");
+
+  const form = new FormData();
+  form.append("model", DMX_IMAGE_MODEL);
+  form.append("prompt", prompt);
+  form.append("n", "1");
+  form.append("size", dmxSizeFromAspectRatio(settings.aspectRatio));
+  form.append("aspect_ratio", safeAspectRatio(settings.aspectRatio));
+  form.append("response_format", "b64_json");
+
+  images.slice(0, 8).forEach((image, index) => {
+    const upload = dataUrlToUpload(image.dataUrl);
+    form.append("image", new Blob([upload.buffer], { type: upload.mime }), uploadFilename(index, upload.mime));
+  });
+
+  const response = await fetch(`${DMX_API_BASE}/images/edits`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${DMX_API_KEY}`,
+    },
+    body: form,
+  });
+
+  const text = await response.text();
+  let data = {};
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`DMXAPI 返回非 JSON 内容：${text.replace(/\s+/g, " ").slice(0, 160)}`);
+  }
+
+  if (!response.ok) {
+    const message = data.error?.message || data.message || data.detail || `HTTP ${response.status}`;
+    throw new Error(`DMXAPI 错误：${message}`);
+  }
+
+  const url = extractDmxImageUrl(data);
+  if (!url) throw new Error("DMXAPI 未返回图片 URL 或 base64。");
+  return { url };
+}
+
+function usesApizProvider(provider) {
+  return provider === "gpt-image-2" || provider === "banana-pro";
+}
+
+function isKnownProvider(provider) {
+  return provider === "ark" || provider === "dmx-gpt-image-2-edit" || usesApizProvider(provider);
+}
+
 async function callSelectedImageModel(prompt, images, model, provider, imageUrls, settings = {}) {
-  if (provider === "gpt-image-2" || provider === "banana-pro") return callApizImage(prompt, imageUrls, provider, settings);
+  if (usesApizProvider(provider)) return callApizImage(prompt, imageUrls, provider, settings);
+  if (provider === "dmx-gpt-image-2-edit") return callDmxImageEdit(prompt, images, settings);
   return callArkImage(prompt, images, model, settings);
 }
 
@@ -980,7 +1058,7 @@ async function handleGenerate(req, res) {
     const images = Array.isArray(body.images) ? body.images.slice(0, 8) : [];
     const settings = body.settings || {};
     const model = modelFromSettings(settings);
-    const provider = ["gpt-image-2", "banana-pro"].includes(settings.modelProvider) ? settings.modelProvider : "ark";
+    const provider = isKnownProvider(settings.modelProvider) ? settings.modelProvider : "ark";
     const clientRequestId = String(body.clientRequestId || "");
     if (!images.length) return sendJson(res, 400, { error: "请至少上传 1 张产品图。" });
 
@@ -1012,7 +1090,7 @@ async function handleGenerate(req, res) {
       return sendJson(res, 202, { mode: "mock", job: jobSnapshot(job) });
     }
 
-    const imageUrls = provider === "ark" ? [] : createPublicImageUrls(req, images);
+    const imageUrls = usesApizProvider(provider) ? createPublicImageUrls(req, images) : [];
     job.context = { images, settings, imageUrls };
     runGenerationJob(job, images, settings, imageUrls).catch((error) => {
       job.status = "failed";
@@ -1181,8 +1259,10 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, {
       hasApiKey: Boolean(ARK_API_KEY),
       hasAigcToken: Boolean(AIGC51_TOKEN),
+      hasDmxKey: Boolean(DMX_API_KEY),
       dryRun: DRY_RUN,
       model: ARK_MODEL,
+      dmxModel: DMX_IMAGE_MODEL,
       models: allowedModels,
     });
   }
@@ -1209,4 +1289,5 @@ setInterval(() => {
 server.listen(PORT, () => {
   console.log(`Shopee AI Studio running at http://127.0.0.1:${PORT}`);
   console.log(`Ark mode: ${DRY_RUN ? "mock (set ARK_API_KEY to enable real calls)" : "real"} | model: ${ARK_MODEL}`);
+  console.log(`DMXAPI mode: ${DMX_API_KEY ? "configured" : "not configured"} | model: ${DMX_IMAGE_MODEL}`);
 });

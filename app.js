@@ -3,6 +3,7 @@ const providerLabels = {
   ark: "seedream5.0",
   "gpt-image-2": "GPT Image 2",
   "banana-pro": "Banana Pro",
+  "dmx-gpt-image-2-edit": "DMX GPT Image 2 Edit",
 };
 
 const modes = {
@@ -49,6 +50,10 @@ function isLocalPreviewHost() {
 
 function isFilePreview() {
   return window.location.protocol === "file:";
+}
+
+function modelRequiresPublicImageUrl(provider) {
+  return provider === "banana-pro" || provider === "gpt-image-2";
 }
 
 function dealEnabled() {
@@ -138,7 +143,7 @@ function updateSummary() {
   const provider = $("modelProvider").value;
   $("summaryScope").textContent = `剩余积分`;
   $("taskCount").textContent = `一次生成即得 ${count} 张${currentMode === "main" ? "专业主图" : "精选图"}`;
-  if (uploadedImages.length && provider !== "ark" && isLocalPreviewHost()) {
+  if (uploadedImages.length && modelRequiresPublicImageUrl(provider) && isLocalPreviewHost()) {
     $("generateSubtext").textContent = `${providerLabels[provider]} · 本地测试需公网图片地址`;
   } else {
     $("generateSubtext").textContent = uploadedImages.length ? `消耗 ${cost} 积分` : `${providerLabels[provider]} · 上传图片后可生成`;
