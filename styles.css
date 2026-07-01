@@ -721,6 +721,41 @@ button:disabled {
   background: rgba(15, 23, 42, 0.62);
 }
 
+.strict-packaging-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  border-radius: 12px;
+  padding: 13px 15px;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.12), rgba(15, 23, 42, 0.42));
+  color: #fef3c7;
+  cursor: pointer;
+}
+
+.strict-packaging-option input {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  accent-color: #f59e0b;
+}
+
+.strict-packaging-option span {
+  display: grid;
+  gap: 4px;
+}
+
+.strict-packaging-option strong {
+  color: #facc15;
+  font-size: 13px;
+}
+
+.strict-packaging-option small {
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .pro-more-fields {
   border: 1px solid rgba(245, 158, 11, 0.28);
   border-radius: 12px;

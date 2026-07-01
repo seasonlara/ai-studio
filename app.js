@@ -269,6 +269,7 @@ function payload() {
       productName: $("productName").value.trim(),
       productFunction: $("productFunction").value.trim(),
       visualStyle: $("visualStyle").value.trim(),
+      strictPackagingMode: Boolean($("strictPackagingMode")?.checked),
       materialInfo: $("materialInfo").value.trim(),
       sizeInfo: $("sizeInfo").value.trim(),
       targetAudience: $("targetAudience").value.trim(),
